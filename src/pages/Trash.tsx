@@ -36,7 +36,7 @@ interface TrashItem {
   size: string;
   deletedAt: string;
   originalPath: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 export default function Trash() {
