@@ -24,6 +24,7 @@ import {
 
 const mainItems = [
   { title: "My Files", url: "/dashboard", icon: FolderOpen },
+  { title: "Share Files", url: "/dashboard/share", icon: Upload },
   { title: "Recent", url: "/dashboard/recent", icon: Upload },
   { title: "Starred", url: "/dashboard/starred", icon: Star },
   { title: "Shared", url: "/dashboard/shared", icon: Share2 },

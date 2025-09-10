@@ -7,6 +7,8 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import ProfileSettings from "./pages/ProfileSettings";
 import StorageSettings from "./pages/StorageSettings";
+import ShareFiles from "./pages/ShareFiles";
+import SharedFiles from "./pages/SharedFiles";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -21,11 +23,12 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/share" element={<DashboardLayout><ShareFiles /></DashboardLayout>} />
           <Route path="/dashboard/profile" element={<DashboardLayout><ProfileSettings /></DashboardLayout>} />
           <Route path="/dashboard/settings" element={<DashboardLayout><ProfileSettings /></DashboardLayout>} />
           <Route path="/dashboard/recent" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
           <Route path="/dashboard/starred" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-          <Route path="/dashboard/shared" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/shared" element={<DashboardLayout><SharedFiles /></DashboardLayout>} />
           <Route path="/dashboard/trash" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
           <Route path="/dashboard/storage" element={<DashboardLayout><StorageSettings /></DashboardLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
