@@ -16,12 +16,14 @@ export default {
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
+        "input-border": "hsl(var(--input-border))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          hover: "hsl(var(--primary-hover))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -57,6 +59,19 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        auth: {
+          gradient: "linear-gradient(135deg, hsl(var(--auth-gradient-from)), hsl(var(--auth-gradient-to)))",
+          bg: "hsl(var(--auth-bg))",
+          card: "hsl(var(--auth-card))",
+          shadow: "hsl(var(--auth-shadow))",
+        },
+      },
+      backgroundImage: {
+        "auth-gradient": "linear-gradient(135deg, hsl(var(--auth-gradient-from)), hsl(var(--auth-gradient-to)))",
+      },
+      transitionTimingFunction: {
+        smooth: "cubic-bezier(0.4, 0, 0.2, 1)",
+        spring: "cubic-bezier(0.175, 0.885, 0.32, 1.275)",
       },
       borderRadius: {
         lg: "var(--radius)",
