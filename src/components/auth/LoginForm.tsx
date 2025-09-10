@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AuthCard } from "./AuthCard";
 import { AuthInput } from "./AuthInput";
 import { AuthButton } from "./AuthButton";
@@ -16,6 +17,7 @@ export const LoginForm = ({ onToggleMode }: LoginFormProps) => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -49,7 +51,7 @@ export const LoginForm = ({ onToggleMode }: LoginFormProps) => {
         description: "You have successfully logged in.",
       });
       // Redirect to dashboard after successful login
-      window.location.href = "/dashboard";
+      navigate("/dashboard");
     }, 1500);
   };
 
@@ -64,10 +66,10 @@ export const LoginForm = ({ onToggleMode }: LoginFormProps) => {
     <AuthCard>
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-foreground mb-2">Welcome back</h1>
-        <p className="text-muted-foreground">Sign in to your account</p>
+        <p className="text-muted-foreground" id="login-description">Sign in to your account</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" role="form" aria-label="Login form">
         <AuthInput
           id="email"
           label="Email"
@@ -98,7 +100,7 @@ export const LoginForm = ({ onToggleMode }: LoginFormProps) => {
           </button>
         </div>
 
-        <AuthButton type="submit" loading={loading}>
+        <AuthButton type="submit" loading={loading} aria-describedby="login-description">
           Sign in
         </AuthButton>
       </form>

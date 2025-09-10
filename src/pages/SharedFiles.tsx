@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Search, 
   Download, 
@@ -10,17 +11,16 @@ import {
   Calendar, 
   Users, 
   MoreHorizontal,
-  Eye,
   Copy,
   Share2,
   Trash2,
-  ExternalLink,
   FileText,
   Image,
   Video,
   Music,
   Archive,
-  File
+  File,
+  Plus
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -56,6 +56,7 @@ interface SharedTransfer {
 
 export default function SharedFiles() {
   const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
   
   // Mock shared transfers data
   const sharedTransfers: SharedTransfer[] = [
@@ -139,6 +140,10 @@ export default function SharedFiles() {
 
   const copyShareLink = (link: string) => {
     navigator.clipboard.writeText(link);
+    toast({
+      title: "Link copied!",
+      description: "Share link copied to clipboard",
+    });
   };
 
   const activeTransfers = sharedTransfers.filter(t => t.status === 'active');
@@ -146,131 +151,90 @@ export default function SharedFiles() {
   const allTransfers = sharedTransfers;
 
   const renderTransferCard = (transfer: SharedTransfer) => (
-    <Card key={transfer.id} className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
+    <Card key={transfer.id} className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20">
+      <CardHeader className="pb-4">
         <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <CardTitle className="text-lg">{transfer.name}</CardTitle>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <CardTitle className="text-lg">{transfer.name}</CardTitle>
+              {getStatusBadge(transfer.status)}
+            </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                Created {formatDate(transfer.createdAt)}
+                {formatDate(transfer.createdAt)}
               </span>
               <span className="flex items-center gap-1">
                 <Users className="h-3 w-3" />
-                {transfer.recipients.length} recipients
+                {transfer.recipients.length}
               </span>
               <span className="flex items-center gap-1">
                 <Download className="h-3 w-3" />
-                {transfer.downloads} downloads
+                {transfer.downloads}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {getStatusBadge(transfer.status)}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => copyShareLink(transfer.shareLink)}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy Link
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Details
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open Share Page
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Transfer
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => copyShareLink(transfer.shareLink)}>
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Link
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-red-600">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Files */}
-        <div className="space-y-2">
-          <h4 className="font-medium text-sm">Files ({transfer.files.length})</h4>
-          <div className="space-y-2">
+        {/* Files - Simplified */}
+        <div className="flex items-center gap-2">
+          <div className="flex -space-x-1">
             {transfer.files.slice(0, 3).map((file, index) => {
               const IconComponent = getFileIcon(file.type);
               return (
-                <div key={index} className="flex items-center gap-2 text-sm">
-                  <IconComponent className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate flex-1">{file.name}</span>
-                  <span className="text-muted-foreground">{file.size}</span>
+                <div key={index} className="w-6 h-6 bg-muted rounded border border-background flex items-center justify-center">
+                  <IconComponent className="h-3 w-3 text-muted-foreground" />
                 </div>
               );
             })}
             {transfer.files.length > 3 && (
-              <div className="text-sm text-muted-foreground">
-                +{transfer.files.length - 3} more files
+              <div className="w-6 h-6 bg-muted rounded border border-background flex items-center justify-center text-xs font-medium">
+                +{transfer.files.length - 3}
               </div>
             )}
           </div>
+          <span className="text-sm text-muted-foreground">{transfer.files.length} files</span>
         </div>
 
-        {/* Recipients */}
-        <div className="space-y-2">
-          <h4 className="font-medium text-sm">Recipients</h4>
-          <div className="flex flex-wrap gap-1">
-            {transfer.recipients.slice(0, 2).map((recipient, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
-                {recipient}
-              </Badge>
-            ))}
-            {transfer.recipients.length > 2 && (
-              <Badge variant="outline" className="text-xs">
-                +{transfer.recipients.length - 2} more
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* Message */}
-        {transfer.message && (
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm">Message</h4>
-            <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded text-ellipsis line-clamp-2">
-              {transfer.message}
-            </p>
-          </div>
-        )}
-
-        {/* Share Link */}
-        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
-          <Link2 className="h-4 w-4 text-muted-foreground" />
-          <code className="flex-1 text-xs font-mono truncate">{transfer.shareLink}</code>
+        {/* Share Link - Simplified */}
+        <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg">
+          <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <code className="flex-1 text-xs font-mono truncate text-muted-foreground">
+            {transfer.shareLink.split('/').pop()}
+          </code>
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={() => copyShareLink(transfer.shareLink)}
-            className="h-6 w-6 p-0"
+            className="h-6 w-6 p-0 hover:bg-muted"
           >
             <Copy className="h-3 w-3" />
           </Button>
         </div>
 
-        {/* Expiration */}
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            {transfer.status === 'expired' ? 'Expired' : 'Expires'} {formatDate(transfer.expiresAt)}
-          </span>
-          {transfer.maxDownloads && (
-            <span className="text-muted-foreground">
-              {transfer.downloads}/{transfer.maxDownloads} downloads
-            </span>
-          )}
+        {/* Expiration - Simplified */}
+        <div className="text-xs text-muted-foreground">
+          {transfer.status === 'expired' ? 'Expired' : 'Expires'} {formatDate(transfer.expiresAt)}
+          {transfer.maxDownloads && ` • ${transfer.downloads}/${transfer.maxDownloads} downloads`}
         </div>
       </CardContent>
     </Card>
@@ -278,20 +242,21 @@ export default function SharedFiles() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Shared Files</h1>
+          <h1 className="text-2xl font-bold text-foreground">Shared Files</h1>
           <p className="text-muted-foreground">Manage your file transfers and shared links</p>
         </div>
         <Button className="gap-2">
-          <Share2 className="h-4 w-4" />
+          <Plus className="h-4 w-4" />
           New Transfer
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-2 max-w-md">
-        <div className="relative flex-1">
+      {/* Search and Tabs */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search transfers..."
@@ -316,14 +281,15 @@ export default function SharedFiles() {
               {activeTransfers.map(renderTransferCard)}
             </div>
           ) : (
-            <Card>
-              <CardContent className="pt-6 text-center py-12">
-                <Share2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No active transfers</h3>
-                <p className="text-muted-foreground mb-4">Create your first file transfer to get started</p>
-                <Button>Share Files</Button>
-              </CardContent>
-            </Card>
+            <div className="text-center py-12">
+              <Share2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No active transfers</h3>
+              <p className="text-muted-foreground mb-4">Create your first file transfer to get started</p>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Share Files
+              </Button>
+            </div>
           )}
         </TabsContent>
 
@@ -333,13 +299,11 @@ export default function SharedFiles() {
               {expiredTransfers.map(renderTransferCard)}
             </div>
           ) : (
-            <Card>
-              <CardContent className="pt-6 text-center py-12">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No expired transfers</h3>
-                <p className="text-muted-foreground">Your expired transfers will appear here</p>
-              </CardContent>
-            </Card>
+            <div className="text-center py-12">
+              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No expired transfers</h3>
+              <p className="text-muted-foreground">Your expired transfers will appear here</p>
+            </div>
           )}
         </TabsContent>
 

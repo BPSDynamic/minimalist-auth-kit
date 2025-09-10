@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Upload, 
   Search, 
@@ -21,7 +22,8 @@ import {
   FileText,
   Video,
   Music,
-  Archive
+  Archive,
+  Trash2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -34,6 +36,7 @@ import {
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
 
   // Mock data for files and folders
   const files = [
@@ -135,6 +138,13 @@ export default function Dashboard() {
       case 'archive': return 'text-yellow-600';
       default: return 'text-gray-500';
     }
+  };
+
+  const handleDelete = (fileName: string) => {
+    toast({
+      title: "Moved to trash",
+      description: `${fileName} has been moved to trash`,
+    });
   };
 
   return (
@@ -280,8 +290,12 @@ export default function Dashboard() {
                           Share
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
-                          Delete
+                        <DropdownMenuItem 
+                          className="text-red-600"
+                          onClick={() => handleDelete(file.name)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Move to Trash
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -326,8 +340,12 @@ export default function Dashboard() {
                             Share
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600">
-                            Delete
+                          <DropdownMenuItem 
+                            className="text-red-600"
+                            onClick={() => handleDelete(file.name)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Move to Trash
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

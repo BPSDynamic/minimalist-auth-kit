@@ -3,7 +3,6 @@ import {
   User, 
   Settings, 
   Upload, 
-  Star,
   Trash2,
   Share2,
   HardDrive
@@ -25,8 +24,6 @@ import {
 const mainItems = [
   { title: "My Files", url: "/dashboard", icon: FolderOpen },
   { title: "Share Files", url: "/dashboard/share", icon: Upload },
-  { title: "Recent", url: "/dashboard/recent", icon: Upload },
-  { title: "Starred", url: "/dashboard/starred", icon: Star },
   { title: "Shared", url: "/dashboard/shared", icon: Share2 },
   { title: "Trash", url: "/dashboard/trash", icon: Trash2 },
 ];
@@ -47,6 +44,13 @@ export function AppSidebar() {
     if (path === "/dashboard") {
       return currentPath === "/dashboard";
     }
+    // Use exact match for specific paths to avoid conflicts
+    if (path === "/dashboard/share") {
+      return currentPath === "/dashboard/share";
+    }
+    if (path === "/dashboard/shared") {
+      return currentPath === "/dashboard/shared";
+    }
     return currentPath.startsWith(path);
   };
 
@@ -58,7 +62,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar className="border-r border-border">
+    <Sidebar className="border-r border-border" role="navigation" aria-label="Main navigation">
       <SidebarContent>
         <div className="p-6">
           <div className="flex items-center gap-2">

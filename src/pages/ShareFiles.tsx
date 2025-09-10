@@ -189,250 +189,271 @@ export default function ShareFiles() {
   const totalSize = uploadedFiles.reduce((acc, file) => acc + file.file.size, 0);
 
   return (
-    <div className="max-w-4xl space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Share Files</h1>
-        <p className="text-muted-foreground">Send large files securely with expiration dates</p>
+    <div className="max-w-7xl space-y-8">
+      {/* Header */}
+      <div className="text-center space-y-1">
+        <h1 className="text-2xl font-bold text-foreground">Share Files</h1>
+        <p className="text-sm text-muted-foreground">Send large files securely with expiration dates</p>
       </div>
 
-      {/* Upload Area */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Upload Files
-          </CardTitle>
-          <CardDescription>
-            Drag and drop files here or click to browse (Max 2GB per transfer)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onClick={() => fileInputRef.current?.click()}
-            className={`
-              relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-              ${isDragOver 
-                ? 'border-primary bg-primary/5' 
-                : 'border-muted-foreground/25 hover:border-primary/50'
-              }
-            `}
-          >
-            <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
-              {isDragOver ? 'Drop files here' : 'Select files to share'}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              Support for all file types • Up to 2GB per transfer
-            </p>
-            <Button variant="outline">Browse Files</Button>
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
-            />
-          </div>
-
-          {/* Uploaded Files */}
-          {uploadedFiles.length > 0 && (
-            <div className="mt-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold">Uploaded Files ({uploadedFiles.length})</h4>
-                <Badge variant="outline">{formatFileSize(totalSize)} total</Badge>
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
+        {/* Left Column - Main Form */}
+        <div className="lg:col-span-2 space-y-4 lg:min-h-[600px] lg:flex lg:flex-col lg:justify-between">
+          {/* Upload Area */}
+          <Card className="border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors">
+            <CardHeader className="text-center pb-3">
+              <CardTitle className="flex items-center justify-center gap-2 text-lg">
+                <Upload className="h-5 w-5" />
+                Upload Files
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Drag and drop files here or click to browse (Max 2GB per transfer)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => fileInputRef.current?.click()}
+                className={`
+                  relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200
+                  ${isDragOver 
+                    ? 'border-primary bg-primary/10 scale-[1.02]' 
+                    : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30'
+                  }
+                `}
+              >
+                <div className="space-y-3">
+                  <Upload className={`h-12 w-12 mx-auto transition-colors ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">
+                      {isDragOver ? 'Drop files here' : 'Select files to share'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Support for all file types • Up to 2GB per transfer
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Browse Files
+                  </Button>
+                </div>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+                />
               </div>
-              
-              <div className="space-y-3">
-                {uploadedFiles.map((file) => {
-                  const IconComponent = getFileIcon(file.type);
-                  return (
-                    <div key={file.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                      <IconComponent className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{file.name}</p>
-                        <p className="text-sm text-muted-foreground">{file.size}</p>
-                        {file.status === 'uploading' && (
-                          <Progress value={file.progress} className="h-1 mt-1" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {file.status === 'completed' && (
-                          <Badge variant="secondary" className="text-xs">Ready</Badge>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(file.id)}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Recipients */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Recipients
-          </CardTitle>
-          <CardDescription>
-            Add email addresses of people you want to share with
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {recipients.map((recipient, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <Input
-                type="email"
-                placeholder="Enter email address"
-                value={recipient}
-                onChange={(e) => updateRecipient(index, e.target.value)}
-                className="flex-1"
-              />
-              {recipients.length > 1 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeRecipient(index)}
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+              {/* Uploaded Files */}
+              {uploadedFiles.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-base font-semibold">Uploaded Files ({uploadedFiles.length})</h4>
+                    <Badge variant="secondary" className="text-xs">{formatFileSize(totalSize)} total</Badge>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {uploadedFiles.map((file) => {
+                      const IconComponent = getFileIcon(file.type);
+                      return (
+                        <div key={file.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+                          <div className="p-1.5 bg-muted rounded-md">
+                            <IconComponent className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">{file.size}</p>
+                            {file.status === 'uploading' && (
+                              <Progress value={file.progress} className="h-1.5 mt-1" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {file.status === 'completed' && (
+                              <Badge variant="default" className="text-xs px-2 py-0.5">Ready</Badge>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(file.id)}
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-            </div>
-          ))}
-          
-          <Button variant="outline" size="sm" onClick={addRecipient} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Recipient
-          </Button>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Message & Settings */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Message (Optional)</CardTitle>
-            <CardDescription>Add a personal message to your recipients</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              placeholder="Hi! I'm sharing these files with you..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={4}
-              className="resize-none"
-            />
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Settings
-            </CardTitle>
-            <CardDescription>Configure sharing options</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Expiration</Label>
-              <Select value={expirationDays} onValueChange={setExpirationDays}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 day</SelectItem>
-                  <SelectItem value="3">3 days</SelectItem>
-                  <SelectItem value="7">1 week</SelectItem>
-                  <SelectItem value="14">2 weeks</SelectItem>
-                  <SelectItem value="30">1 month</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Message */}
+          <Card className="lg:flex-1 lg:flex lg:flex-col">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Message (Optional)</CardTitle>
+              <CardDescription className="text-sm">Add a personal message to your recipients</CardDescription>
+            </CardHeader>
+            <CardContent className="lg:flex-1 lg:flex lg:flex-col">
+              <Textarea
+                placeholder="Hi! I'm sharing these files with you..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={3}
+                className="resize-none text-sm lg:flex-1"
+              />
+            </CardContent>
+          </Card>
+        </div>
 
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium text-sm">Download notifications</p>
-                <p className="text-xs text-muted-foreground">Get notified when files are downloaded</p>
+        {/* Right Column - Settings & Actions */}
+        <div className="space-y-4 lg:min-h-[600px] lg:flex lg:flex-col lg:justify-between">
+          {/* Settings Card */}
+          <Card className="sticky top-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Calendar className="h-4 w-4" />
+                Settings
+              </CardTitle>
+              <CardDescription className="text-sm">Configure sharing options</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Expiration</Label>
+                <Select value={expirationDays} onValueChange={setExpirationDays}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 day</SelectItem>
+                    <SelectItem value="3">3 days</SelectItem>
+                    <SelectItem value="7">1 week</SelectItem>
+                    <SelectItem value="14">2 weeks</SelectItem>
+                    <SelectItem value="30">1 month</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <input type="checkbox" className="h-4 w-4" defaultChecked />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Share Button */}
-      <Card>
-        <CardContent className="pt-6">
-          <Button 
-            onClick={handleShare} 
-            disabled={isSharing || uploadedFiles.length === 0}
-            className="w-full h-12 text-lg gap-2"
-            size="lg"
-          >
-            {isSharing ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                Preparing Share...
-              </>
-            ) : (
-              <>
-                <Send className="h-5 w-5" />
-                Share Files
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+              <div className="flex items-start gap-2 p-3 border rounded-lg bg-muted/30">
+                <input type="checkbox" className="h-4 w-4 mt-0.5" defaultChecked />
+                <div>
+                  <p className="font-medium text-xs">Download notifications</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Get notified when files are downloaded</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recipients Card */}
+          <Card className="sticky top-80">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Users className="h-4 w-4" />
+                Recipients
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Add email addresses of people you want to share with
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {recipients.map((recipient, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <div className="p-1.5 bg-muted rounded-md">
+                    <Mail className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                  <Input
+                    type="email"
+                    placeholder="Enter email address"
+                    value={recipient}
+                    onChange={(e) => updateRecipient(index, e.target.value)}
+                    className="flex-1 h-9 text-sm"
+                  />
+                  {recipients.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeRecipient(index)}
+                      className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              
+              <Button variant="outline" size="sm" onClick={addRecipient} className="gap-2 w-full h-9 text-sm">
+                <Plus className="h-3 w-3" />
+                Add Recipient
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Share Button Card */}
+          <Card className="lg:mt-auto">
+            <CardContent className="pt-3 pb-4">
+              <Button 
+                onClick={handleShare} 
+                disabled={isSharing || uploadedFiles.length === 0}
+                className="w-full h-9 text-xs gap-1.5"
+                size="sm"
+              >
+                {isSharing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                    Preparing...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-3 w-3" />
+                    Share Files
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Share Link Result */}
       {shareLink && (
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-800">
-              <Share2 className="h-5 w-5" />
+        <Card className="border-green-200 bg-green-50/50 backdrop-blur-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-green-800 text-base">
+              <Share2 className="h-4 w-4" />
               Files Shared Successfully!
             </CardTitle>
-            <CardDescription className="text-green-600">
+            <CardDescription className="text-green-600 text-sm">
               Your files have been uploaded and share notifications sent to recipients
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-2 p-3 bg-white rounded-lg border">
+            <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-green-200">
               <Link2 className="h-4 w-4 text-muted-foreground" />
-              <Input value={shareLink} readOnly className="border-0 bg-transparent flex-1" />
-              <Button variant="outline" size="sm" onClick={copyLink} className="gap-2">
-                <Copy className="h-4 w-4" />
+              <Input value={shareLink} readOnly className="border-0 bg-transparent flex-1 text-sm" />
+              <Button variant="outline" size="sm" onClick={copyLink} className="gap-1 h-8">
+                <Copy className="h-3 w-3" />
                 Copy
               </Button>
             </div>
             
-            <div className="flex flex-wrap gap-2 text-sm text-green-700">
-              <Badge variant="outline" className="border-green-300">
+            <div className="flex flex-wrap gap-2 text-xs text-green-700">
+              <Badge variant="outline" className="border-green-300 text-xs px-2 py-0.5">
                 <Download className="h-3 w-3 mr-1" />
                 Expires in {expirationDays} days
               </Badge>
-              <Badge variant="outline" className="border-green-300">
+              <Badge variant="outline" className="border-green-300 text-xs px-2 py-0.5">
                 <Users className="h-3 w-3 mr-1" />
                 {recipients.filter(r => r.trim()).length} recipients
               </Badge>
-              <Badge variant="outline" className="border-green-300">
+              <Badge variant="outline" className="border-green-300 text-xs px-2 py-0.5">
                 <FileText className="h-3 w-3 mr-1" />
                 {uploadedFiles.length} files
               </Badge>
