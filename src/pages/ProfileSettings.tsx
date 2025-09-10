@@ -12,8 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Camera, 
   Save, 
-  Eye, 
-  EyeOff, 
   Shield, 
   Bell, 
   Mail,
@@ -23,8 +21,6 @@ import {
 
 export default function ProfileSettings() {
   const [loading, setLoading] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
   const { toast } = useToast();
 
   const [profile, setProfile] = useState({
@@ -35,12 +31,6 @@ export default function ProfileSettings() {
     bio: "Software developer with a passion for creating beautiful and functional applications.",
     website: "https://johndoe.dev",
     location: "San Francisco, CA",
-  });
-
-  const [password, setPassword] = useState({
-    current: "",
-    new: "",
-    confirm: "",
   });
 
   const [notifications, setNotifications] = useState({
@@ -65,38 +55,6 @@ export default function ProfileSettings() {
       toast({
         title: "Profile updated",
         description: "Your profile has been successfully updated.",
-      });
-    }, 1000);
-  };
-
-  const handlePasswordChange = async () => {
-    if (password.new !== password.confirm) {
-      toast({
-        title: "Error",
-        description: "New passwords do not match.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (password.new.length < 8) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 8 characters long.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      setPassword({ current: "", new: "", confirm: "" });
-      toast({
-        title: "Password changed",
-        description: "Your password has been successfully updated.",
       });
     }, 1000);
   };
@@ -216,74 +174,6 @@ export default function ProfileSettings() {
           <Button onClick={handleProfileSave} disabled={loading} className="gap-2">
             <Save className="h-4 w-4" />
             {loading ? "Saving..." : "Save Changes"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Change Password */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Change Password</CardTitle>
-          <CardDescription>
-            Update your password to keep your account secure.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">Current Password</Label>
-            <div className="relative">
-              <Input
-                id="currentPassword"
-                type={showCurrentPassword ? "text" : "password"}
-                value={password.current}
-                onChange={(e) => setPassword(prev => ({ ...prev, current: e.target.value }))}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-              >
-                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <div className="relative">
-                <Input
-                  id="newPassword"
-                  type={showNewPassword ? "text" : "password"}
-                  value={password.new}
-                  onChange={(e) => setPassword(prev => ({ ...prev, new: e.target.value }))}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                >
-                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={password.confirm}
-                onChange={(e) => setPassword(prev => ({ ...prev, confirm: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <Button onClick={handlePasswordChange} variant="outline" className="gap-2">
-            Update Password
           </Button>
         </CardContent>
       </Card>
