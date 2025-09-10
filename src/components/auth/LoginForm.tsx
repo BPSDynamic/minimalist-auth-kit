@@ -48,6 +48,8 @@ export const LoginForm = ({ onToggleMode }: LoginFormProps) => {
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
+      // Redirect to dashboard after successful login
+      window.location.href = "/dashboard";
     }, 1500);
   };
 
