@@ -76,6 +76,7 @@ interface FileItem {
   allowSharing: boolean;
   isUploading?: boolean;
   uploadProgress?: number;
+  allowedFileTypes?: string[]; // For folders only
 }
 
 export default function Dashboard() {
@@ -108,7 +109,8 @@ export default function Dashboard() {
       tags: ["design", "assets"],
       confidentiality: "internal",
       importance: "medium",
-      allowSharing: true
+      allowSharing: true,
+      allowedFileTypes: ["image", "pdf", "document"]
     },
     {
       id: 3,
@@ -150,7 +152,8 @@ export default function Dashboard() {
       tags: ["documents"],
       confidentiality: "internal",
       importance: "medium",
-      allowSharing: true
+      allowSharing: true,
+      allowedFileTypes: ["pdf", "document", "text", "spreadsheet"]
     },
     {
       id: 6,
@@ -200,6 +203,7 @@ export default function Dashboard() {
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [selectedFolderFileTypes, setSelectedFolderFileTypes] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadFolder, setUploadFolder] = useState('Root');
   const [uploadTags, setUploadTags] = useState<string[]>([]);
@@ -214,6 +218,18 @@ export default function Dashboard() {
   // Available folders and tags
   const availableFolders = ['Root', 'Documents', 'Projects', 'Personal', 'Media', 'Presentations', 'Backups'];
   const availableTags = ['business', 'personal', 'design', 'documents', 'media', 'presentation', 'archive', 'backup', 'photos', 'video', 'audio', 'text', 'proposal', 'assets', 'notes', 'music'];
+  const availableFileTypes = [
+    { value: 'all', label: 'All Files', icon: File },
+    { value: 'image', label: 'Images', icon: Image },
+    { value: 'video', label: 'Videos', icon: Video },
+    { value: 'audio', label: 'Audio', icon: Music },
+    { value: 'pdf', label: 'PDFs', icon: FileText },
+    { value: 'text', label: 'Text Files', icon: FileText },
+    { value: 'archive', label: 'Archives', icon: Archive },
+    { value: 'document', label: 'Documents', icon: FileText },
+    { value: 'spreadsheet', label: 'Spreadsheets', icon: FileText },
+    { value: 'presentation', label: 'Presentations', icon: FileText }
+  ];
 
   const getFileIcon = (type: string) => {
     switch (type) {
@@ -311,16 +327,22 @@ export default function Dashboard() {
       tags: [],
       confidentiality: "internal",
       importance: "medium",
-      allowSharing: true
+      allowSharing: true,
+      allowedFileTypes: selectedFolderFileTypes.length > 0 ? selectedFolderFileTypes : ['all']
     };
 
     setFiles(prev => [newFolder, ...prev]);
     setNewFolderName('');
+    setSelectedFolderFileTypes([]);
     setShowCreateFolder(false);
+    
+    const fileTypesText = selectedFolderFileTypes.length > 0 
+      ? ` for ${selectedFolderFileTypes.join(', ')} files`
+      : ' for all file types';
     
     toast({
       title: "Folder created",
-      description: `"${newFolderName}" folder has been created`,
+      description: `"${newFolderName}" folder has been created${fileTypesText}`,
     });
   };
 
@@ -396,6 +418,14 @@ export default function Dashboard() {
     );
   };
 
+  const handleFolderFileTypeToggle = (fileType: string) => {
+    setSelectedFolderFileTypes(prev => 
+      prev.includes(fileType) 
+        ? prev.filter(t => t !== fileType)
+        : [...prev, fileType]
+    );
+  };
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -426,14 +456,14 @@ export default function Dashboard() {
                 New Folder
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Create New Folder</DialogTitle>
                 <DialogDescription>
-                  Enter a name for the new folder.
+                  Enter a name and select the types of files this folder will contain.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
                   <Label htmlFor="folder-name">Folder Name</Label>
                   <Input
@@ -444,9 +474,44 @@ export default function Dashboard() {
                     onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
                   />
                 </div>
+
+                <div>
+                  <Label>Allowed File Types</Label>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Select the types of files this folder will contain. Leave empty for all file types.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableFileTypes.map((fileType) => {
+                      const IconComponent = fileType.icon;
+                      return (
+                        <Button
+                          key={fileType.value}
+                          variant={selectedFolderFileTypes.includes(fileType.value) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleFolderFileTypeToggle(fileType.value)}
+                          className="h-auto p-3 flex flex-col items-center gap-2"
+                        >
+                          <IconComponent className="h-4 w-4" />
+                          <span className="text-xs">{fileType.label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  {selectedFolderFileTypes.length > 0 && (
+                    <div className="mt-3 p-2 bg-muted rounded-md">
+                      <p className="text-xs text-muted-foreground">
+                        Selected: {selectedFolderFileTypes.join(', ')}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowCreateFolder(false)}>
+                <Button variant="outline" onClick={() => {
+                  setShowCreateFolder(false);
+                  setNewFolderName('');
+                  setSelectedFolderFileTypes([]);
+                }}>
                   Cancel
                 </Button>
                 <Button onClick={handleCreateFolder}>
@@ -591,6 +656,16 @@ export default function Dashboard() {
                             <Lock className="h-3 w-3 text-red-500" />
                           )}
                         </div>
+                        {file.type === 'folder' && file.allowedFileTypes && (
+                          <div className="mt-1">
+                            <p className="text-xs text-muted-foreground">
+                              {file.allowedFileTypes.includes('all') 
+                                ? 'All file types' 
+                                : `${file.allowedFileTypes.length} file type${file.allowedFileTypes.length > 1 ? 's' : ''}`
+                              }
+                            </p>
+                          </div>
+                        )}
                         {file.isUploading && (
                           <div className="mt-1">
                             <Progress value={file.uploadProgress} className="h-1" />
