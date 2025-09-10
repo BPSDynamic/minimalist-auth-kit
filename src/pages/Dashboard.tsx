@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
   Share2, 
   MoreHorizontal,
   FolderPlus,
+  FolderOpen,
   Filter,
   SortDesc,
   File,
@@ -82,6 +83,8 @@ interface FileItem {
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentFolder, setCurrentFolder] = useState<string>('Root');
+  const [folderPath, setFolderPath] = useState<string[]>(['Root']);
   const [files, setFiles] = useState<FileItem[]>([
     {
       id: 1,
@@ -205,7 +208,7 @@ export default function Dashboard() {
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedFolderFileTypes, setSelectedFolderFileTypes] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploadFolder, setUploadFolder] = useState('Root');
+  const [uploadFolder, setUploadFolder] = useState(currentFolder);
   const [uploadTags, setUploadTags] = useState<string[]>([]);
   const [uploadConfidentiality, setUploadConfidentiality] = useState<'public' | 'internal' | 'confidential' | 'restricted'>('internal');
   const [uploadImportance, setUploadImportance] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
@@ -215,8 +218,22 @@ export default function Dashboard() {
 
   const { toast } = useToast();
 
+  // Update upload folder when current folder changes
+  useEffect(() => {
+    setUploadFolder(currentFolder);
+  }, [currentFolder]);
+
+  // Filter files based on current folder
+  const getCurrentFolderFiles = () => {
+    return files.filter(file => file.folder === currentFolder);
+  };
+
+  const getCurrentFolderFolders = () => {
+    return files.filter(file => file.type === 'folder' && file.folder === currentFolder);
+  };
+
   // Available folders and tags
-  const availableFolders = ['Root', 'Documents', 'Projects', 'Personal', 'Media', 'Presentations', 'Backups'];
+  const availableFolders = ['Root', ...getCurrentFolderFolders().map(f => f.name)];
   const availableTags = ['business', 'personal', 'design', 'documents', 'media', 'presentation', 'archive', 'backup', 'photos', 'video', 'audio', 'text', 'proposal', 'assets', 'notes', 'music'];
   const availableFileTypes = [
     { value: 'all', label: 'All Files', icon: File },
@@ -227,8 +244,7 @@ export default function Dashboard() {
     { value: 'text', label: 'Text Files', icon: FileText },
     { value: 'archive', label: 'Archives', icon: Archive },
     { value: 'document', label: 'Documents', icon: FileText },
-    { value: 'spreadsheet', label: 'Spreadsheets', icon: FileText },
-    { value: 'presentation', label: 'Presentations', icon: FileText }
+    { value: 'spreadsheet', label: 'Spreadsheets', icon: FileText }
   ];
 
   const getFileIcon = (type: string) => {
@@ -323,7 +339,7 @@ export default function Dashboard() {
       size: "0 files",
       modified: "Just now",
       icon: Folder,
-      folder: "Root",
+      folder: currentFolder,
       tags: [],
       confidentiality: "internal",
       importance: "medium",
@@ -426,6 +442,26 @@ export default function Dashboard() {
     );
   };
 
+  // Folder navigation functions
+  const handleFolderClick = (folderName: string) => {
+    setCurrentFolder(folderName);
+    setFolderPath(prev => [...prev, folderName]);
+  };
+
+  const handleBreadcrumbClick = (index: number) => {
+    const newPath = folderPath.slice(0, index + 1);
+    setFolderPath(newPath);
+    setCurrentFolder(newPath[newPath.length - 1]);
+  };
+
+  const handleBackToParent = () => {
+    if (folderPath.length > 1) {
+      const newPath = folderPath.slice(0, -1);
+      setFolderPath(newPath);
+      setCurrentFolder(newPath[newPath.length - 1]);
+    }
+  };
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -441,80 +477,147 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col space-y-4">
-      {/* Compact Header */}
+    <div className="h-full flex flex-col space-y-6">
+      {/* Clean Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">My Files</h1>
-          <p className="text-sm text-muted-foreground">2.4 GB used of 15 GB</p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">My Files</h1>
+            {folderPath.length > 1 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBackToParent}
+                className="h-6 px-2 text-xs"
+              >
+                ← Back
+              </Button>
+            )}
+            <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full">
+              <Folder className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">
+                {currentFolder}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            {folderPath.map((folder, index) => (
+              <div key={index} className="flex items-center gap-2">
+                {index > 0 && (
+                  <span className="text-muted-foreground">/</span>
+                )}
+                <button
+                  onClick={() => handleBreadcrumbClick(index)}
+                  className={`px-2 py-1 rounded-md transition-all duration-200 ${
+                    index === folderPath.length - 1 
+                      ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  {folder}
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">2.4 GB used of 15 GB storage</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Dialog open={showCreateFolder} onOpenChange={setShowCreateFolder}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1">
+              <Button variant="outline" size="sm" className="gap-2 h-9">
                 <FolderPlus className="h-4 w-4" />
                 New Folder
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Create New Folder</DialogTitle>
-                <DialogDescription>
-                  Enter a name and select the types of files this folder will contain.
+            <DialogContent className="max-w-lg">
+              <DialogHeader className="space-y-3">
+                <DialogTitle className="text-xl font-semibold">Create New Folder</DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  Organize your files with a dedicated folder
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-6">
-                <div>
-                  <Label htmlFor="folder-name">Folder Name</Label>
+              
+              <div className="space-y-6 py-4">
+                {/* Folder Name Section */}
+                <div className="space-y-2">
+                  <Label htmlFor="folder-name" className="text-sm font-medium">Folder Name</Label>
                   <Input
                     id="folder-name"
                     value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
-                    placeholder="Enter folder name..."
+                    placeholder="e.g., Project Assets, Documents, Photos..."
                     onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+                    className="h-10"
                   />
                 </div>
 
-                <div>
-                  <Label>Allowed File Types</Label>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Select the types of files this folder will contain. Leave empty for all file types.
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
+                {/* File Types Section */}
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium">File Types</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Restrict this folder to specific file types
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2">
                     {availableFileTypes.map((fileType) => {
                       const IconComponent = fileType.icon;
+                      const isSelected = selectedFolderFileTypes.includes(fileType.value);
                       return (
                         <Button
                           key={fileType.value}
-                          variant={selectedFolderFileTypes.includes(fileType.value) ? "default" : "outline"}
+                          variant={isSelected ? "default" : "outline"}
                           size="sm"
                           onClick={() => handleFolderFileTypeToggle(fileType.value)}
-                          className="h-auto p-3 flex flex-col items-center gap-2"
+                          className={`h-16 p-2 flex flex-col items-center gap-1.5 transition-all duration-200 ${
+                            isSelected 
+                              ? 'bg-primary text-primary-foreground shadow-sm' 
+                              : 'hover:bg-muted/50 border-border/50'
+                          }`}
                         >
-                          <IconComponent className="h-4 w-4" />
-                          <span className="text-xs">{fileType.label}</span>
+                          <IconComponent className={`h-4 w-4 ${isSelected ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
+                          <span className={`text-xs font-medium leading-tight ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>
+                            {fileType.label}
+                          </span>
                         </Button>
                       );
                     })}
                   </div>
+                  
                   {selectedFolderFileTypes.length > 0 && (
-                    <div className="mt-3 p-2 bg-muted rounded-md">
-                      <p className="text-xs text-muted-foreground">
-                        Selected: {selectedFolderFileTypes.join(', ')}
+                    <div className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 bg-primary rounded-full"></div>
+                        <p className="text-xs font-medium text-primary">
+                          {selectedFolderFileTypes.length} file type{selectedFolderFileTypes.length > 1 ? 's' : ''} selected
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {selectedFolderFileTypes.join(' • ')}
                       </p>
                     </div>
                   )}
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => {
-                  setShowCreateFolder(false);
-                  setNewFolderName('');
-                  setSelectedFolderFileTypes([]);
-                }}>
+              
+              <DialogFooter className="gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowCreateFolder(false);
+                    setNewFolderName('');
+                    setSelectedFolderFileTypes([]);
+                  }}
+                  className="flex-1"
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleCreateFolder}>
+                <Button 
+                  onClick={handleCreateFolder}
+                  className="flex-1"
+                  disabled={!newFolderName.trim()}
+                >
                   Create Folder
                 </Button>
               </DialogFooter>
@@ -523,7 +626,7 @@ export default function Dashboard() {
 
           <Button 
             size="sm" 
-            className="gap-1"
+            className="gap-2 h-9"
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="h-4 w-4" />
@@ -539,70 +642,124 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Compact Storage & Upload Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Storage Usage - Compact */}
-        <Card className="lg:col-span-1">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Storage</span>
+      {/* Folder Navigation Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Folder Navigation Sidebar */}
+        <div className="lg:col-span-1">
+          <Card className="border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-medium">Folders</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <button
+                onClick={() => handleBreadcrumbClick(0)}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 ${
+                  currentFolder === 'Root' 
+                    ? 'bg-primary text-primary-foreground font-medium' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Folder className="h-4 w-4" />
+                  Root
+                </div>
+              </button>
+              {getCurrentFolderFolders().map((folder) => (
+                <button
+                  key={folder.id}
+                  onClick={() => handleFolderClick(folder.name)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 ${
+                    currentFolder === folder.name 
+                      ? 'bg-primary text-primary-foreground font-medium' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Folder className="h-4 w-4" />
+                    {folder.name}
+                    {folder.allowedFileTypes && !folder.allowedFileTypes.includes('all') && (
+                      <Badge variant="outline" className="text-xs ml-auto">
+                        {folder.allowedFileTypes.length} types
+                      </Badge>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Clean Storage & Upload Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Storage Usage */}
+        <Card className="border-border/50">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-foreground">Storage</span>
               <Badge variant="outline" className="text-xs">84% Free</Badge>
             </div>
-            <Progress value={16} className="h-1.5" />
-            <div className="flex justify-between text-xs text-muted-foreground mt-1">
-              <span>2.4 GB</span>
-              <span>15 GB</span>
+            <Progress value={16} className="h-2 mb-2" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>2.4 GB used</span>
+              <span>15 GB total</span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Upload Zone - Compact */}
+        {/* Upload Zone */}
         <Card 
-          className="lg:col-span-2 border-dashed border-2 border-muted-foreground/25 hover:border-primary/50 transition-colors cursor-pointer"
+          className="lg:col-span-2 border-dashed border-2 border-border/50 hover:border-primary/50 transition-all duration-200 cursor-pointer hover:bg-muted/20"
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
         >
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm font-medium mb-1">Drop files to upload</p>
-                <p className="text-xs text-muted-foreground">or click to browse</p>
+              <div className="text-center space-y-3">
+                <div className="p-3 rounded-full bg-primary/10 mx-auto w-fit">
+                  <Upload className="h-6 w-6 text-primary" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Drop files to upload</p>
+                  <p className="text-xs text-muted-foreground">or click to browse your device</p>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Compact Toolbar */}
+      {/* Clean Toolbar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
+        <div className="flex items-center gap-3 flex-1 max-w-md">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search files..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-9"
+              className="pl-10 h-10 border-border/50 focus:border-primary/50"
             />
           </div>
-          <Button variant="outline" size="sm" className="h-9 w-9 p-0">
-            <Filter className="h-4 w-4" />
+          <Button variant="outline" size="sm" className="h-10 px-3">
+            <Filter className="h-4 w-4 mr-2" />
+            Filter
           </Button>
         </div>
         
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-9">
-            <SortDesc className="h-4 w-4 mr-1" />
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" className="h-10 px-3">
+            <SortDesc className="h-4 w-4 mr-2" />
             Sort
           </Button>
-          <div className="flex border rounded-md">
+          <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-lg">
             <Button 
               variant={viewMode === 'grid' ? 'default' : 'ghost'} 
               size="sm"
               onClick={() => setViewMode('grid')}
-              className="rounded-r-none h-9 w-9 p-0"
+              className="h-8 w-8 p-0"
             >
               <Grid3X3 className="h-4 w-4" />
             </Button>
@@ -610,7 +767,7 @@ export default function Dashboard() {
               variant={viewMode === 'list' ? 'default' : 'ghost'} 
               size="sm"
               onClick={() => setViewMode('list')}
-              className="rounded-l-none h-9 w-9 p-0"
+              className="h-8 w-8 p-0"
             >
               <List className="h-4 w-4" />
             </Button>
@@ -618,20 +775,23 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Files Grid/List - Flexible Height */}
-      <Card className="flex-1 min-h-0">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Recent Files</CardTitle>
-        </CardHeader>
+          {/* Files Grid/List - Flexible Height */}
+          <Card className="flex-1 min-h-0 border-border/50">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-semibold">
+                {currentFolder === 'Root' ? 'Recent Files' : `Files in ${currentFolder}`}
+              </CardTitle>
+            </CardHeader>
         <CardContent className="h-full overflow-auto">
           {viewMode === 'grid' ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              {files.map((file) => {
+              {getCurrentFolderFiles().map((file) => {
                 const IconComponent = getFileIcon(file.type);
                 return (
                   <div
                     key={file.id}
                     className="group relative p-3 border rounded-lg hover:shadow-sm transition-all duration-200 cursor-pointer hover:border-primary/50"
+                    onClick={() => file.type === 'folder' ? handleFolderClick(file.name) : undefined}
                   >
                     <div className="flex flex-col items-center text-center space-y-2">
                       <div className={`${getFileTypeColor(file.type)}`}>
@@ -685,22 +845,45 @@ export default function Dashboard() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Share2 className="h-4 w-4 mr-2" />
-                          Share
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-red-600"
-                          onClick={() => handleDelete(file.name)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Move to Trash
-                        </DropdownMenuItem>
+                        {file.type === 'folder' ? (
+                          <>
+                            <DropdownMenuItem onClick={() => handleFolderClick(file.name)}>
+                              <FolderOpen className="h-4 w-4 mr-2" />
+                              Open Folder
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Share2 className="h-4 w-4 mr-2" />
+                              Share Folder
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              className="text-red-600"
+                              onClick={() => handleDelete(file.name)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete Folder
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <>
+                            <DropdownMenuItem>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Share2 className="h-4 w-4 mr-2" />
+                              Share
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              className="text-red-600"
+                              onClick={() => handleDelete(file.name)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Move to Trash
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -709,12 +892,13 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-1">
-              {files.map((file) => {
+              {getCurrentFolderFiles().map((file) => {
                 const IconComponent = getFileIcon(file.type);
                 return (
                   <div
                     key={file.id}
                     className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md transition-colors cursor-pointer"
+                    onClick={() => file.type === 'folder' ? handleFolderClick(file.name) : undefined}
                   >
                     <div className="flex items-center gap-3">
                       <div className={getFileTypeColor(file.type)}>
@@ -735,22 +919,45 @@ export default function Dashboard() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Share2 className="h-4 w-4 mr-2" />
-                            Share
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-red-600"
-                            onClick={() => handleDelete(file.name)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Move to Trash
-                          </DropdownMenuItem>
+                          {file.type === 'folder' ? (
+                            <>
+                              <DropdownMenuItem onClick={() => handleFolderClick(file.name)}>
+                                <FolderOpen className="h-4 w-4 mr-2" />
+                                Open Folder
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Share Folder
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-red-600"
+                                onClick={() => handleDelete(file.name)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Folder
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <>
+                              <DropdownMenuItem>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Share
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-red-600"
+                                onClick={() => handleDelete(file.name)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Move to Trash
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -761,6 +968,8 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+        </div>
+      </div>
 
       {/* Upload Modal */}
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
