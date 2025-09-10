@@ -1,11 +1,12 @@
 import { 
-  LayoutDashboard, 
+  FolderOpen, 
   User, 
   Settings, 
-  BarChart3, 
-  Bell,
-  FileText,
-  Users
+  Upload, 
+  Star,
+  Trash2,
+  Share2,
+  HardDrive
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -22,16 +23,17 @@ import {
 } from "@/components/ui/sidebar";
 
 const mainItems = [
-  { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
-  { title: "Users", url: "/dashboard/users", icon: Users },
-  { title: "Reports", url: "/dashboard/reports", icon: FileText },
+  { title: "My Files", url: "/dashboard", icon: FolderOpen },
+  { title: "Recent", url: "/dashboard/recent", icon: Upload },
+  { title: "Starred", url: "/dashboard/starred", icon: Star },
+  { title: "Shared", url: "/dashboard/shared", icon: Share2 },
+  { title: "Trash", url: "/dashboard/trash", icon: Trash2 },
 ];
 
 const settingsItems = [
+  { title: "Storage", url: "/dashboard/storage", icon: HardDrive },
   { title: "Profile", url: "/dashboard/profile", icon: User },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
-  { title: "Notifications", url: "/dashboard/notifications", icon: Bell },
 ];
 
 export function AppSidebar() {
@@ -62,12 +64,12 @@ export function AppSidebar() {
             <div className="w-8 h-8 bg-auth-gradient rounded-lg flex items-center justify-center">
               <div className="w-4 h-4 bg-white rounded-sm"></div>
             </div>
-            {!collapsed && <span className="font-semibold text-lg">App</span>}
+            {!collapsed && <span className="font-semibold text-lg">CloudVault</span>}
           </div>
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Main</SidebarGroupLabel>
+          <SidebarGroupLabel>Files</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (

@@ -1,115 +1,344 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Users, BarChart3, TrendingUp, Activity } from "lucide-react";
+import { 
+  Upload, 
+  Search, 
+  Grid3X3, 
+  List, 
+  Download, 
+  Share2, 
+  MoreHorizontal,
+  FolderPlus,
+  Filter,
+  SortDesc,
+  File,
+  Folder,
+  Image,
+  FileText,
+  Video,
+  Music,
+  Archive
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Dashboard() {
-  const stats = [
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Mock data for files and folders
+  const files = [
     {
-      title: "Total Users",
-      value: "2,847",
-      change: "+12.5%",
-      trend: "up",
-      icon: Users,
+      id: 1,
+      name: "Project Proposal.pdf",
+      type: "pdf",
+      size: "2.4 MB",
+      modified: "2 hours ago",
+      icon: FileText,
+      thumbnail: null
     },
     {
-      title: "Revenue",
-      value: "$24,521",
-      change: "+8.2%",
-      trend: "up",
-      icon: BarChart3,
+      id: 2,
+      name: "Design Assets",
+      type: "folder",
+      size: "12 files",
+      modified: "1 day ago",
+      icon: Folder,
+      thumbnail: null
     },
     {
-      title: "Growth Rate",
-      value: "14.8%",
-      change: "+2.1%",
-      trend: "up",
-      icon: TrendingUp,
+      id: 3,
+      name: "vacation-2024.jpg",
+      type: "image",
+      size: "4.2 MB",
+      modified: "3 days ago",
+      icon: Image,
+      thumbnail: "/placeholder.svg"
     },
     {
-      title: "Active Sessions",
-      value: "1,234",
-      change: "-5.4%",
-      trend: "down",
-      icon: Activity,
+      id: 4,
+      name: "presentation.mp4",
+      type: "video",
+      size: "45.8 MB",
+      modified: "1 week ago",
+      icon: Video,
+      thumbnail: null
     },
+    {
+      id: 5,
+      name: "Documents",
+      type: "folder",
+      size: "24 files",
+      modified: "2 weeks ago",
+      icon: Folder,
+      thumbnail: null
+    },
+    {
+      id: 6,
+      name: "audio-track.mp3",
+      type: "audio",
+      size: "8.1 MB",
+      modified: "3 weeks ago",
+      icon: Music,
+      thumbnail: null
+    },
+    {
+      id: 7,
+      name: "backup.zip",
+      type: "archive",
+      size: "124 MB",
+      modified: "1 month ago",
+      icon: Archive,
+      thumbnail: null
+    },
+    {
+      id: 8,
+      name: "notes.txt",
+      type: "text",
+      size: "1.2 KB",
+      modified: "2 months ago",
+      icon: FileText,
+      thumbnail: null
+    }
   ];
+
+  const getFileIcon = (type: string) => {
+    switch (type) {
+      case 'folder': return Folder;
+      case 'image': return Image;
+      case 'video': return Video;
+      case 'audio': return Music;
+      case 'pdf': return FileText;
+      case 'text': return FileText;
+      case 'archive': return Archive;
+      default: return File;
+    }
+  };
+
+  const getFileTypeColor = (type: string) => {
+    switch (type) {
+      case 'folder': return 'text-blue-600';
+      case 'image': return 'text-green-600';
+      case 'video': return 'text-purple-600';
+      case 'audio': return 'text-orange-600';
+      case 'pdf': return 'text-red-600';
+      case 'text': return 'text-gray-600';
+      case 'archive': return 'text-yellow-600';
+      default: return 'text-gray-500';
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard Overview</h1>
-        <p className="text-muted-foreground">Welcome back! Here's what's happening with your account.</p>
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">My Files</h1>
+          <p className="text-muted-foreground">Manage and organize your files</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-2">
+            <FolderPlus className="h-4 w-4" />
+            New Folder
+          </Button>
+          <Button className="gap-2 bg-primary hover:bg-primary/90">
+            <Upload className="h-4 w-4" />
+            Upload Files
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.title} className="transition-all duration-200 hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge 
-                  variant={stat.trend === "up" ? "default" : "destructive"}
-                  className="text-xs"
-                >
-                  {stat.change}
-                </Badge>
-                <p className="text-xs text-muted-foreground">from last month</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Storage Usage */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold">Storage Usage</h3>
+              <p className="text-sm text-muted-foreground">2.4 GB used of 15 GB</p>
+            </div>
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              84% Available
+            </Badge>
+          </div>
+          <Progress value={16} className="h-2" />
+          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+            <span>2.4 GB used</span>
+            <span>15 GB total</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Upload Zone */}
+      <Card className="border-dashed border-2 border-muted-foreground/25 hover:border-primary/50 transition-colors">
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Drop files to upload</h3>
+            <p className="text-muted-foreground mb-4">or click to browse</p>
+            <Button variant="outline">Choose Files</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search files and folders..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button variant="outline" size="sm">
+            <Filter className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm">
+            <SortDesc className="h-4 w-4 mr-2" />
+            Sort
+          </Button>
+          <div className="flex border rounded-lg">
+            <Button 
+              variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+              size="sm"
+              onClick={() => setViewMode('grid')}
+              className="rounded-r-none"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'list' ? 'default' : 'ghost'} 
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className="rounded-l-none"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Your latest account activities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Activity {i}</p>
-                    <p className="text-xs text-muted-foreground">2 minutes ago</p>
+      {/* File Grid/List */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Recent Files</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+              {files.map((file) => {
+                const IconComponent = getFileIcon(file.type);
+                return (
+                  <div
+                    key={file.id}
+                    className="group relative p-4 border rounded-lg hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/50"
+                  >
+                    <div className="flex flex-col items-center text-center space-y-2">
+                      <div className={`${getFileTypeColor(file.type)}`}>
+                        <IconComponent className="h-12 w-12" />
+                      </div>
+                      <div className="w-full">
+                        <p className="font-medium text-sm truncate" title={file.name}>
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{file.size}</p>
+                        <p className="text-xs text-muted-foreground">{file.modified}</p>
+                      </div>
+                    </div>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Share2 className="h-4 w-4 mr-2" />
+                          Share
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-red-600">
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks and shortcuts</CardDescription>
-          </CardHeader>
-          <CardContent>
+          ) : (
             <div className="space-y-2">
-              <button className="w-full p-3 text-left rounded-lg border border-border hover:bg-muted/50 transition-colors">
-                <div className="font-medium text-sm">Update Profile</div>
-                <div className="text-xs text-muted-foreground">Manage your account information</div>
-              </button>
-              <button className="w-full p-3 text-left rounded-lg border border-border hover:bg-muted/50 transition-colors">
-                <div className="font-medium text-sm">Generate Report</div>
-                <div className="text-xs text-muted-foreground">Create a new analytics report</div>
-              </button>
-              <button className="w-full p-3 text-left rounded-lg border border-border hover:bg-muted/50 transition-colors">
-                <div className="font-medium text-sm">Invite Users</div>
-                <div className="text-xs text-muted-foreground">Add new team members</div>
-              </button>
+              {files.map((file) => {
+                const IconComponent = getFileIcon(file.type);
+                return (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={getFileTypeColor(file.type)}>
+                        <IconComponent className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">Modified {file.modified}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-muted-foreground">{file.size}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Share2 className="h-4 w-4 mr-2" />
+                            Share
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600">
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

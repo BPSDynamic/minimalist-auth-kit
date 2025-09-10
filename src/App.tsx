@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import ProfileSettings from "./pages/ProfileSettings";
+import StorageSettings from "./pages/StorageSettings";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -22,10 +23,11 @@ const App = () => (
           <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
           <Route path="/dashboard/profile" element={<DashboardLayout><ProfileSettings /></DashboardLayout>} />
           <Route path="/dashboard/settings" element={<DashboardLayout><ProfileSettings /></DashboardLayout>} />
-          <Route path="/dashboard/analytics" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-          <Route path="/dashboard/users" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-          <Route path="/dashboard/reports" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-          <Route path="/dashboard/notifications" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/recent" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/starred" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/shared" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/trash" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/storage" element={<DashboardLayout><StorageSettings /></DashboardLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
