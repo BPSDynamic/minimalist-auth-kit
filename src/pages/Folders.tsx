@@ -65,32 +65,21 @@ export default function Folders() {
           return;
         }
 
-        const folderItems: FileItem[] = [];
-        
-        for (const folderId of result.folders) {
-          try {
-            const metadataResult = await s3Service.getFolderMetadata(folderId);
-            if (metadataResult.success && metadataResult.metadata) {
-              const metadata = metadataResult.metadata;
-              folderItems.push({
-                id: folderId,
-                name: metadata.name,
-                type: 'folder',
-                size: '0 files',
-                modified: new Date(metadata.createdAt).toLocaleDateString(),
-                folder: 'Root',
-                tags: [],
-                confidentiality: 'internal',
-                importance: 'low',
-                allowSharing: true,
-                allowedFileTypes: metadata.allowedFileTypes,
-                s3FolderId: folderId
-              });
-            }
-          } catch (error) {
-            console.error(`Error loading metadata for folder ${folderId}:`, error);
-          }
-        }
+        // The new listFolders method returns full folder objects with metadata
+        const folderItems: FileItem[] = result.folders.map((folder: any) => ({
+          id: folder.id || folder.name,
+          name: folder.name || folder.displayName,
+          type: 'folder',
+          size: '0 files',
+          modified: new Date(folder.createdAt || Date.now()).toLocaleDateString(),
+          folder: 'Root',
+          tags: [],
+          confidentiality: 'internal',
+          importance: 'low',
+          allowSharing: true,
+          allowedFileTypes: folder.allowedFileTypes || ['all'],
+          s3FolderId: folder.id || folder.name
+        }));
         
         setFiles(folderItems);
       } catch (error) {
@@ -255,32 +244,21 @@ export default function Folders() {
                     return;
                   }
 
-                  const folderItems: FileItem[] = [];
-                  
-                  for (const folderId of result.folders) {
-                    try {
-                      const metadataResult = await s3Service.getFolderMetadata(folderId);
-                      if (metadataResult.success && metadataResult.metadata) {
-                        const metadata = metadataResult.metadata;
-                        folderItems.push({
-                          id: folderId,
-                          name: metadata.name,
-                          type: 'folder',
-                          size: '0 files',
-                          modified: new Date(metadata.createdAt).toLocaleDateString(),
-                          folder: 'Root',
-                          tags: [],
-                          confidentiality: 'internal',
-                          importance: 'low',
-                          allowSharing: true,
-                          allowedFileTypes: metadata.allowedFileTypes,
-                          s3FolderId: folderId
-                        });
-                      }
-                    } catch (error) {
-                      console.error(`Error loading metadata for folder ${folderId}:`, error);
-                    }
-                  }
+                  // The new listFolders method returns full folder objects with metadata
+                  const folderItems: FileItem[] = result.folders.map((folder: any) => ({
+                    id: folder.id || folder.name,
+                    name: folder.name || folder.displayName,
+                    type: 'folder',
+                    size: '0 files',
+                    modified: new Date(folder.createdAt || Date.now()).toLocaleDateString(),
+                    folder: 'Root',
+                    tags: [],
+                    confidentiality: 'internal',
+                    importance: 'low',
+                    allowSharing: true,
+                    allowedFileTypes: folder.allowedFileTypes || ['all'],
+                    s3FolderId: folder.id || folder.name
+                  }));
                   
                   setFiles(folderItems);
                 } catch (error) {

@@ -310,10 +310,8 @@ class S3Service {
 
       console.log('Placeholder upload result:', uploadResult);
 
-      // Now upload the metadata file
-      const metadataKey = parentFolderId 
-        ? `${parentFolderId}/${sanitizedName}/.folder_metadata.json`
-        : `${sanitizedName}/.folder_metadata.json`;
+      // Store all metadata in a dedicated .metadata folder for clean S3 organization
+      const metadataKey = `.metadata/folders/${sanitizedName}.json`;
 
       const metadataBlob = new Blob([JSON.stringify(folderMetadata, null, 2)], {
         type: 'application/json'
@@ -391,9 +389,9 @@ class S3Service {
           
           console.log('Found folder:', folderName, 'from key:', key);
           
-          // Try to get metadata for this folder
+          // Try to get metadata for this folder from centralized location
           try {
-            const metadataResult = await this.getFolderMetadata(folderName, parentFolderId);
+            const metadataResult = await this.getFolderMetadata(folderName);
             if (metadataResult.success) {
               return {
                 id: folderName,
@@ -424,6 +422,7 @@ class S3Service {
       const folders = (await Promise.all(folderPromises)).filter(folder => folder !== null);
 
       console.log('Extracted folders with metadata:', folders);
+      console.log('Number of folders found:', folders.length);
 
       return {
         success: true,
@@ -456,10 +455,9 @@ class S3Service {
         await Promise.all(deletePromises);
       }
 
-      // Delete the folder metadata file
-      const metadataKey = parentFolderId 
-        ? `${parentFolderId}/${folderId}/.folder_metadata.json`
-        : `${folderId}/.folder_metadata.json`;
+      // Delete the folder metadata file from centralized location
+      const sanitizedFolderId = folderId.replace(/[^a-zA-Z0-9.\-_\s]/g, '_').trim();
+      const metadataKey = `.metadata/folders/${sanitizedFolderId}.json`;
 
       await remove({
         key: metadataKey,
@@ -491,8 +489,8 @@ class S3Service {
     }
   }
 
-  // Get folder metadata
-  async getFolderMetadata(folderId: string, parentFolderId?: string): Promise<{ success: boolean; metadata?: any; error?: string }> {
+  // Get folder metadata from centralized location
+  async getFolderMetadata(folderId: string): Promise<{ success: boolean; metadata?: any; error?: string }> {
     try {
       // Validate input
       if (!folderId || folderId.trim() === '' || folderId === 'undefined') {
@@ -502,9 +500,9 @@ class S3Service {
         };
       }
 
-      const metadataKey = parentFolderId 
-        ? `${parentFolderId}/${folderId}/.folder_metadata.json`
-        : `${folderId}/.folder_metadata.json`;
+      // Sanitize folder ID to match the stored metadata key
+      const sanitizedFolderId = folderId.replace(/[^a-zA-Z0-9.\-_\s]/g, '_').trim();
+      const metadataKey = `.metadata/folders/${sanitizedFolderId}.json`;
 
       console.log('Fetching metadata for key:', metadataKey);
 
@@ -526,6 +524,33 @@ class S3Service {
       return {
         success: false,
         error: error.message || 'Failed to get folder metadata',
+      };
+    }
+  }
+
+  // List all metadata files for debugging/management
+  async listAllMetadata(): Promise<{ success: boolean; metadataFiles?: string[]; error?: string }> {
+    try {
+      const listResult = await list({
+        prefix: '.metadata/',
+        options: {
+          accessLevel: 'public',
+          listAll: true,
+        },
+      });
+
+      const metadataFiles = listResult.items
+        .map(item => (item as any).key)
+        .filter(key => key.endsWith('.json'));
+
+      return {
+        success: true,
+        metadataFiles,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to list metadata files',
       };
     }
   }
