@@ -74,7 +74,7 @@ class S3Service {
         key: s3Key,
         data: file,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
           onProgress: ({ transferredBytes, totalBytes }) => {
             if (options.onProgress) {
               options.onProgress({
@@ -121,13 +121,13 @@ class S3Service {
       const downloadResult = await downloadData({
         key: s3Key,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
         },
       }).result;
 
       return {
         success: true,
-        blob: downloadResult.body as Blob,
+        blob: downloadResult.body as unknown as Blob,
       };
     } catch (error: any) {
       return {
@@ -143,7 +143,7 @@ class S3Service {
       const url = await getUrl({
         key: s3Key,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
           expiresIn, // URL expires in 1 hour by default
         },
       });
@@ -166,7 +166,7 @@ class S3Service {
       await remove({
         key: s3Key,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
         },
       });
 
@@ -193,7 +193,7 @@ class S3Service {
       const listResult = await list({
         prefix,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
           listAll: true,
         },
       });
@@ -253,6 +253,147 @@ class S3Service {
   validateFileSize(file: File, maxSizeInMB: number): boolean {
     const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
     return file.size <= maxSizeInBytes;
+  }
+
+  // Create folder in S3
+  async createFolder(
+    folderName: string, 
+    parentFolderId?: string,
+    allowedFileTypes?: string[]
+  ): Promise<{ success: boolean; folderId?: string; error?: string }> {
+    try {
+      const user = await this.getCurrentUser();
+      const identityId = await this.getIdentityId();
+      
+      // Generate unique folder ID
+      const folderId = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Create folder metadata file
+      const folderMetadata = {
+        id: folderId,
+        name: folderName,
+        type: 'folder',
+        parentFolderId: parentFolderId || 'root',
+        allowedFileTypes: allowedFileTypes || ['all'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: (user as any).username || (user as any).userId || 'unknown',
+      };
+
+      // Create a placeholder file to represent the folder
+      const folderKey = parentFolderId 
+        ? `${parentFolderId}/${folderId}/.folder_metadata.json`
+        : `${folderId}/.folder_metadata.json`;
+
+      const metadataBlob = new Blob([JSON.stringify(folderMetadata, null, 2)], {
+        type: 'application/json'
+      });
+
+      await uploadData({
+        key: folderKey,
+        data: metadataBlob,
+        options: {
+          accessLevel: 'guest',
+        },
+      }).result;
+
+      return {
+        success: true,
+        folderId,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to create folder',
+      };
+    }
+  }
+
+  // List folders
+  async listFolders(parentFolderId?: string): Promise<{ success: boolean; folders?: any[]; error?: string }> {
+    try {
+      const user = await this.getCurrentUser();
+      const identityId = await this.getIdentityId();
+      
+      const prefix = parentFolderId 
+        ? `${parentFolderId}/`
+        : '';
+
+      const listResult = await list({
+        prefix,
+        options: {
+          accessLevel: 'guest',
+          listAll: true,
+        },
+      });
+
+      // Filter for folder metadata files
+      const folders = listResult.items
+        .filter(item => (item as any).key.endsWith('.folder_metadata.json'))
+        .map(item => {
+          // Extract folder ID from the key
+          const keyParts = (item as any).key.split('/');
+          const folderId = keyParts[keyParts.length - 2]; // folder ID is the parent directory
+          return {
+            id: folderId,
+            key: (item as any).key,
+            lastModified: (item as any).lastModified,
+            size: (item as any).size,
+          };
+        });
+
+      return {
+        success: true,
+        folders,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to list folders',
+      };
+    }
+  }
+
+  // Delete folder
+  async deleteFolder(folderId: string, parentFolderId?: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const user = await this.getCurrentUser();
+      
+      // First, list all files in the folder
+      const filesResult = await this.listFiles(folderId);
+      if (!filesResult.success) {
+        return { success: false, error: filesResult.error };
+      }
+
+      // Delete all files in the folder
+      if (filesResult.files && filesResult.files.length > 0) {
+        const deletePromises = filesResult.files.map(file => 
+          this.deleteFile(file.key)
+        );
+        await Promise.all(deletePromises);
+      }
+
+      // Delete the folder metadata file
+      const folderKey = parentFolderId 
+        ? `${parentFolderId}/${folderId}/.folder_metadata.json`
+        : `${folderId}/.folder_metadata.json`;
+
+      await remove({
+        key: folderKey,
+        options: {
+          accessLevel: 'guest',
+        },
+      });
+
+      return {
+        success: true,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to delete folder',
+      };
+    }
   }
 
   // Get file icon based on type

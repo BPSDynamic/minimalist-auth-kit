@@ -226,6 +226,43 @@ export default function Dashboard() {
     setUploadFolder(currentFolder);
   }, [currentFolder]);
 
+  // Load folders from S3 when component mounts
+  useEffect(() => {
+    const loadFoldersFromS3 = async () => {
+      try {
+        const result = await s3Service.listFolders(currentFolder === 'Root' ? undefined : currentFolder);
+        if (result.success && result.folders) {
+          // Convert S3 folders to FileItem format and add to local state
+          const s3Folders: FileItem[] = result.folders.map((folder: any, index: number) => ({
+            id: Date.now() + index,
+            name: `S3 Folder ${index + 1}`, // We'll need to fetch the actual name from metadata
+            type: "folder",
+            size: "0 files",
+            modified: new Date(folder.lastModified).toLocaleDateString(),
+            icon: Folder,
+            folder: currentFolder,
+            tags: [],
+            confidentiality: "internal",
+            importance: "medium",
+            allowSharing: true,
+            allowedFileTypes: ['all']
+          }));
+          
+          // Add S3 folders to the existing files (avoid duplicates)
+          setFiles(prev => {
+            const existingFolderNames = prev.filter(f => f.type === 'folder').map(f => f.name);
+            const newFolders = s3Folders.filter(f => !existingFolderNames.includes(f.name));
+            return [...prev, ...newFolders];
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load folders from S3:', error);
+      }
+    };
+
+    loadFoldersFromS3();
+  }, [currentFolder]);
+
   // Filter files based on current folder
   const getCurrentFolderFiles = () => {
     return files.filter(file => file.folder === currentFolder);
@@ -276,11 +313,47 @@ export default function Dashboard() {
     }
   };
 
-  const handleDelete = (fileName: string) => {
-    toast({
-      title: "Moved to trash",
-      description: `${fileName} has been moved to trash`,
-    });
+  const handleDelete = async (fileName: string, fileId?: number, isFolder: boolean = false) => {
+    try {
+      if (isFolder) {
+        // Find the folder in the files array to get its details
+        const folder = files.find(f => f.name === fileName && f.type === 'folder');
+        if (folder) {
+          // Delete folder from S3
+          const result = await s3Service.deleteFolder(
+            `folder_${folder.id}`, // Use the folder ID as the S3 folder ID
+            currentFolder === 'Root' ? undefined : currentFolder
+          );
+
+          if (result.success) {
+            // Remove from local state
+            setFiles(prev => prev.filter(f => f.id !== folder.id));
+            toast({
+              title: "Folder deleted",
+              description: `${fileName} folder has been deleted from S3`,
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: result.error || "Failed to delete folder",
+              variant: "destructive",
+            });
+          }
+        }
+      } else {
+        // For files, just show the trash message for now
+        toast({
+          title: "Moved to trash",
+          description: `${fileName} has been moved to trash`,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete item",
+        variant: "destructive",
+      });
+    }
   };
 
   // Helper functions
@@ -325,7 +398,7 @@ export default function Dashboard() {
   };
 
   // File operations
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) {
       toast({
         title: "Error",
@@ -335,34 +408,58 @@ export default function Dashboard() {
       return;
     }
 
-    const newFolder: FileItem = {
-      id: Date.now(),
-      name: newFolderName,
-      type: "folder",
-      size: "0 files",
-      modified: "Just now",
-      icon: Folder,
-      folder: currentFolder,
-      tags: [],
-      confidentiality: "internal",
-      importance: "medium",
-      allowSharing: true,
-      allowedFileTypes: selectedFolderFileTypes.length > 0 ? selectedFolderFileTypes : ['all']
-    };
+    try {
+      // Create folder in S3
+      const result = await s3Service.createFolder(
+        newFolderName,
+        currentFolder === 'Root' ? undefined : currentFolder,
+        selectedFolderFileTypes.length > 0 ? selectedFolderFileTypes : undefined
+      );
 
-    setFiles(prev => [newFolder, ...prev]);
-    setNewFolderName('');
-    setSelectedFolderFileTypes([]);
-    setShowCreateFolder(false);
-    
-    const fileTypesText = selectedFolderFileTypes.length > 0 
-      ? ` for ${selectedFolderFileTypes.join(', ')} files`
-      : ' for all file types';
-    
-    toast({
-      title: "Folder created",
-      description: `"${newFolderName}" folder has been created${fileTypesText}`,
-    });
+      if (result.success && result.folderId) {
+        // Add folder to local state
+        const newFolder: FileItem = {
+          id: Date.now(),
+          name: newFolderName,
+          type: "folder",
+          size: "0 files",
+          modified: "Just now",
+          icon: Folder,
+          folder: currentFolder,
+          tags: [],
+          confidentiality: "internal",
+          importance: "medium",
+          allowSharing: true,
+          allowedFileTypes: selectedFolderFileTypes.length > 0 ? selectedFolderFileTypes : ['all']
+        };
+
+        setFiles(prev => [newFolder, ...prev]);
+        setNewFolderName('');
+        setSelectedFolderFileTypes([]);
+        setShowCreateFolder(false);
+        
+        const fileTypesText = selectedFolderFileTypes.length > 0 
+          ? ` for ${selectedFolderFileTypes.join(', ')} files`
+          : ' for all file types';
+        
+        toast({
+          title: "Folder created",
+          description: `"${newFolderName}" folder has been created in S3${fileTypesText}`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create folder",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create folder",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -911,7 +1008,7 @@ export default function Dashboard() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               className="text-red-600"
-                              onClick={() => handleDelete(file.name)}
+                              onClick={() => handleDelete(file.name, file.id, true)}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete Folder
@@ -985,7 +1082,7 @@ export default function Dashboard() {
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-red-600"
-                                onClick={() => handleDelete(file.name)}
+                                onClick={() => handleDelete(file.name, file.id, true)}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete Folder
