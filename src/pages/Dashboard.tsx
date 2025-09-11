@@ -89,122 +89,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentFolder, setCurrentFolder] = useState<string>('Root');
   const [folderPath, setFolderPath] = useState<string[]>(['Root']);
-  const [files, setFiles] = useState<FileItem[]>([
-    {
-      id: 1,
-      name: "Project Proposal.pdf",
-      type: "pdf",
-      size: "2.4 MB",
-      modified: "2 hours ago",
-      icon: FileText,
-      thumbnail: null,
-      folder: "Documents",
-      tags: ["business", "proposal"],
-      confidentiality: "confidential",
-      importance: "high",
-      allowSharing: true
-    },
-    {
-      id: 2,
-      name: "Design Assets",
-      type: "folder",
-      size: "12 files",
-      modified: "1 day ago",
-      icon: Folder,
-      thumbnail: null,
-      folder: "Projects",
-      tags: ["design", "assets"],
-      confidentiality: "internal",
-      importance: "medium",
-      allowSharing: true,
-      allowedFileTypes: ["image", "pdf", "document"]
-    },
-    {
-      id: 3,
-      name: "vacation-2024.jpg",
-      type: "image",
-      size: "4.2 MB",
-      modified: "3 days ago",
-      icon: Image,
-      thumbnail: "/placeholder.svg",
-      folder: "Personal",
-      tags: ["personal", "photos"],
-      confidentiality: "public",
-      importance: "low",
-      allowSharing: false
-    },
-    {
-      id: 4,
-      name: "presentation.mp4",
-      type: "video",
-      size: "45.8 MB",
-      modified: "1 week ago",
-      icon: Video,
-      thumbnail: null,
-      folder: "Presentations",
-      tags: ["presentation", "video"],
-      confidentiality: "internal",
-      importance: "high",
-      allowSharing: true
-    },
-    {
-      id: 5,
-      name: "Documents",
-      type: "folder",
-      size: "24 files",
-      modified: "2 weeks ago",
-      icon: Folder,
-      thumbnail: null,
-      folder: "Root",
-      tags: ["documents"],
-      confidentiality: "internal",
-      importance: "medium",
-      allowSharing: true,
-      allowedFileTypes: ["pdf", "document", "text", "spreadsheet"]
-    },
-    {
-      id: 6,
-      name: "audio-track.mp3",
-      type: "audio",
-      size: "8.1 MB",
-      modified: "3 weeks ago",
-      icon: Music,
-      thumbnail: null,
-      folder: "Media",
-      tags: ["audio", "music"],
-      confidentiality: "public",
-      importance: "low",
-      allowSharing: true
-    },
-    {
-      id: 7,
-      name: "backup.zip",
-      type: "archive",
-      size: "124 MB",
-      modified: "1 month ago",
-      icon: Archive,
-      thumbnail: null,
-      folder: "Backups",
-      tags: ["backup", "archive"],
-      confidentiality: "restricted",
-      importance: "critical",
-      allowSharing: false
-    },
-    {
-      id: 8,
-      name: "notes.txt",
-      type: "text",
-      size: "1.2 KB",
-      modified: "2 months ago",
-      icon: FileText,
-      thumbnail: null,
-      folder: "Personal",
-      tags: ["notes", "text"],
-      confidentiality: "public",
-      importance: "low",
-      allowSharing: false
-    }
-  ]);
+  const [files, setFiles] = useState<FileItem[]>([]);
 
   // State for modals and functionality
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -233,60 +118,28 @@ export default function Dashboard() {
       try {
         const result = await s3Service.listFolders(currentFolder === 'Root' ? undefined : currentFolder);
         if (result.success && result.folders) {
-          // Load metadata for each folder to get the actual folder names
-          const s3Folders: FileItem[] = await Promise.all(
-            result.folders.map(async (folder: any, index: number) => {
-              try {
-                const metadataResult = await s3Service.getFolderMetadata(
-                  folder.id, 
-                  currentFolder === 'Root' ? undefined : currentFolder
-                );
-                
-                if (metadataResult.success && metadataResult.metadata) {
-                  return {
-                    id: Date.now() + index,
-                    name: metadataResult.metadata.name,
-                    type: "folder",
-                    size: "0 files",
-                    modified: new Date(folder.lastModified).toLocaleDateString(),
-                    icon: Folder,
-                    folder: currentFolder,
-                    tags: [],
-                    confidentiality: "internal",
-                    importance: "medium",
-                    allowSharing: true,
-                    allowedFileTypes: metadataResult.metadata.allowedFileTypes || ['all']
-                  };
-                } else {
-                  // Fallback if metadata can't be loaded
-                  return {
-                    id: Date.now() + index,
-                    name: `Folder ${index + 1}`,
-                    type: "folder",
-                    size: "0 files",
-                    modified: new Date(folder.lastModified).toLocaleDateString(),
-                    icon: Folder,
-                    folder: currentFolder,
-                    tags: [],
-                    confidentiality: "internal",
-                    importance: "medium",
-                    allowSharing: true,
-                    allowedFileTypes: ['all']
-                  };
-                }
-              } catch (error) {
-                console.error('Failed to load folder metadata:', error);
-                return null;
-              }
-            })
-          );
+          // The new listFolders method returns full folder objects with metadata
+          const s3Folders: FileItem[] = result.folders.map((folder: any, index: number) => ({
+            id: Date.now() + index,
+            name: folder.name || folder.displayName,
+            type: "folder",
+            size: "0 files",
+            modified: new Date(folder.createdAt || Date.now()).toLocaleDateString(),
+            icon: Folder,
+            folder: currentFolder,
+            tags: [],
+            confidentiality: "internal" as const,
+            importance: "medium" as const,
+            allowSharing: true,
+            allowedFileTypes: folder.allowedFileTypes || ['all'],
+            s3FolderId: folder.id || folder.name
+          }));
           
-          // Filter out null results and add S3 folders to the existing files (avoid duplicates)
-          const validFolders = s3Folders.filter(f => f !== null) as FileItem[];
           setFiles(prev => {
-            const existingFolderNames = prev.filter(f => f.type === 'folder').map(f => f.name);
-            const newFolders = validFolders.filter(f => !existingFolderNames.includes(f.name));
-            return [...prev, ...newFolders];
+            // Remove existing folders for current folder
+            const filteredFiles = prev.filter(f => !(f.type === 'folder' && f.folder === currentFolder));
+            // Add new folders
+            return [...filteredFiles, ...s3Folders];
           });
         }
       } catch (error) {
@@ -312,7 +165,7 @@ export default function Dashboard() {
   };
 
   // Available folders and tags
-  const availableFolders = ['Root', ...getCurrentFolderFolders().map(f => f.name)];
+  const availableFolders = ['Root', ...getAllFolders().map(f => f.name)];
   const availableTags = ['business', 'personal', 'design', 'documents', 'media', 'presentation', 'archive', 'backup', 'photos', 'video', 'audio', 'text', 'proposal', 'assets', 'notes', 'music'];
   const availableFileTypes = [
     { value: 'all', label: 'All Files', icon: File },
@@ -855,6 +708,7 @@ export default function Dashboard() {
                 >
                   <button
                     onClick={() => handleFolderClick(folder.name)}
+                    onDoubleClick={() => handleFolderClick(folder.name)}
                     className="flex items-center gap-2 w-full"
                   >
                     <Folder className="h-4 w-4" />
