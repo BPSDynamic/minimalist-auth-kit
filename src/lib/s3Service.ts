@@ -291,14 +291,18 @@ class S3Service {
         type: 'text/plain'
       });
 
+      console.log('Creating folder with key:', folderKey);
+
       // Upload the placeholder file to create the folder structure
-      await uploadData({
+      const uploadResult = await uploadData({
         key: folderKey,
         data: placeholderBlob,
         options: {
           accessLevel: 'guest',
         },
       }).result;
+
+      console.log('Placeholder upload result:', uploadResult);
 
       // Now upload the metadata file
       const metadataKey = parentFolderId 
@@ -309,13 +313,17 @@ class S3Service {
         type: 'application/json'
       });
 
-      await uploadData({
+      console.log('Creating metadata with key:', metadataKey);
+
+      const metadataResult = await uploadData({
         key: metadataKey,
         data: metadataBlob,
         options: {
           accessLevel: 'guest',
         },
       }).result;
+
+      console.log('Metadata upload result:', metadataResult);
 
       return {
         success: true,
@@ -339,6 +347,8 @@ class S3Service {
         ? `${parentFolderId}/`
         : '';
 
+      console.log('Listing folders with prefix:', prefix);
+
       const listResult = await list({
         prefix,
         options: {
@@ -346,6 +356,8 @@ class S3Service {
           listAll: true,
         },
       });
+
+      console.log('List result items:', listResult.items);
 
       // Filter for folder placeholder files to identify folders
       const folders = listResult.items
@@ -356,8 +368,11 @@ class S3Service {
           const keyParts = key.split('/');
           // For a key like "TREE_1757588153892/.folder_placeholder", the folder ID is "TREE_1757588153892"
           const folderId = keyParts[keyParts.length - 2];
+          console.log('Found folder:', folderId, 'from key:', key);
           return folderId;
         });
+
+      console.log('Extracted folders:', folders);
 
       return {
         success: true,
