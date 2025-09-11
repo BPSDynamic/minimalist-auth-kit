@@ -10,6 +10,7 @@ import Settings from "./pages/Settings";
 import StorageSettings from "./pages/StorageSettings";
 import ShareFiles from "./pages/ShareFiles";
 import SharedFiles from "./pages/SharedFiles";
+import Folders from "./pages/Folders";
 import Trash from "./pages/Trash";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/dashboard/profile" element={<AuthGuard><DashboardLayout><ProfileSettings /></DashboardLayout></AuthGuard>} />
               <Route path="/dashboard/settings" element={<AuthGuard><DashboardLayout><Settings /></DashboardLayout></AuthGuard>} />
               <Route path="/dashboard/shared" element={<AuthGuard><DashboardLayout><SharedFiles /></DashboardLayout></AuthGuard>} />
+              <Route path="/dashboard/folders" element={<AuthGuard><DashboardLayout><Folders /></DashboardLayout></AuthGuard>} />
               <Route path="/dashboard/trash" element={<AuthGuard><DashboardLayout><Trash /></DashboardLayout></AuthGuard>} />
               <Route path="/dashboard/storage" element={<AuthGuard><DashboardLayout><StorageSettings /></DashboardLayout></AuthGuard>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

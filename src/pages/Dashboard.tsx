@@ -845,26 +845,67 @@ export default function Dashboard() {
                 </div>
               </button>
               {getAllFolders().map((folder) => (
-                <button
+                <div
                   key={folder.id}
-                  onClick={() => handleFolderClick(folder.name)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 ${
+                  className={`group relative w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 ${
                     currentFolder === folder.name 
                       ? 'bg-primary text-primary-foreground font-medium' 
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleFolderClick(folder.name)}
+                    className="flex items-center gap-2 w-full"
+                  >
                     <Folder className="h-4 w-4" />
-                    {folder.name}
+                    <span className="flex-1 text-left truncate">{folder.name}</span>
                     {folder.allowedFileTypes && !folder.allowedFileTypes.includes('all') && (
-                      <Badge variant="outline" className="text-xs ml-auto">
-                        {folder.allowedFileTypes.length} types
+                      <Badge variant="outline" className="text-xs">
+                        {folder.allowedFileTypes.length}
                       </Badge>
                     )}
-                  </div>
-                </button>
+                  </button>
+                  
+                  {/* Folder Management Menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                      >
+                        <MoreHorizontal className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleFolderClick(folder.name)}>
+                        <FolderOpen className="h-4 w-4 mr-2" />
+                        Open Folder
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Share Folder
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        className="text-red-600"
+                        onClick={() => handleDelete(folder.name, folder.id, true)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Folder
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               ))}
+              
+              {/* Empty state for folders */}
+              {getAllFolders().length === 0 && (
+                <div className="text-center py-4 text-muted-foreground">
+                  <Folder className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-xs">No folders yet</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -968,99 +1009,42 @@ export default function Dashboard() {
             }}
           />
 
-          {/* Folders Section - Show when in Root */}
-          {currentFolder === 'Root' && (
+          {/* Root View - Show welcome message when no files */}
+          {currentFolder === 'Root' && getCurrentFolderFiles().length === 0 && (
             <Card className="border-border/50">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold">Folders</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {getAllFolders().length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Folder className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No folders yet</p>
-                    <p className="text-sm">Create your first folder to get started</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                    {getAllFolders().map((folder) => {
-                      const IconComponent = getFileIcon(folder.type);
-                      return (
-                        <div
-                          key={folder.id}
-                          className="group relative p-3 border rounded-lg hover:shadow-sm transition-all duration-200 cursor-pointer hover:border-primary/50"
-                          onClick={() => handleFolderClick(folder.name)}
-                        >
-                          <div className="flex flex-col items-center text-center space-y-2">
-                            <div className={`${getFileTypeColor(folder.type)}`}>
-                              <IconComponent className="h-8 w-8" />
-                            </div>
-                            <div className="w-full">
-                              <p className="font-medium text-xs truncate" title={folder.name}>
-                                {folder.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{folder.size}</p>
-                              <p className="text-xs text-muted-foreground">{folder.modified}</p>
-                              <div className="flex items-center gap-1 mt-1">
-                                <Badge className={`text-xs px-1 py-0 ${getConfidentialityColor(folder.confidentiality)}`}>
-                                  {folder.confidentiality}
-                                </Badge>
-                                {folder.importance !== 'low' && (
-                                  <Badge className={`text-xs px-1 py-0 ${getImportanceColor(folder.importance)}`}>
-                                    {folder.importance}
-                                  </Badge>
-                                )}
-                                {!folder.allowSharing && (
-                                  <Lock className="h-3 w-3 text-red-500" />
-                                )}
-                              </div>
-                              {folder.type === 'folder' && folder.allowedFileTypes && (
-                                <div className="mt-1">
-                                  <p className="text-xs text-muted-foreground">
-                                    {folder.allowedFileTypes.includes('all') 
-                                      ? 'All file types' 
-                                      : `${folder.allowedFileTypes.length} file type${folder.allowedFileTypes.length > 1 ? 's' : ''}`
-                                    }
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                              >
-                                <MoreHorizontal className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleFolderClick(folder.name)}>
-                                <FolderOpen className="h-4 w-4 mr-2" />
-                                Open Folder
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Share2 className="h-4 w-4 mr-2" />
-                                Share Folder
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-red-600"
-                                onClick={() => handleDelete(folder.name, folder.id, true)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete Folder
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+              <CardContent className="text-center py-12">
+                <Folder className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-semibold mb-2">Welcome to CloudVault</h3>
+                <p className="text-muted-foreground mb-4">
+                  Your files are organized in folders. Create a folder or upload files to get started.
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <Button onClick={() => setShowCreateFolderModal(true)}>
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                    Create Folder
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowUploadModal(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Files
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty folder state */}
+          {currentFolder !== 'Root' && getCurrentFolderFiles().length === 0 && (
+            <Card className="border-border/50">
+              <CardContent className="text-center py-12">
+                <Folder className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-semibold mb-2">Empty Folder</h3>
+                <p className="text-muted-foreground mb-4">
+                  This folder is empty. Upload files to get started.
+                </p>
+                <Button onClick={() => setShowUploadModal(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Files
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -1072,6 +1056,9 @@ export default function Dashboard() {
                 <CardTitle className="text-lg font-semibold">
                   {currentFolder === 'Root' ? 'Files' : `Files in ${currentFolder}`}
                 </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {getCurrentFolderFiles().length} file{getCurrentFolderFiles().length !== 1 ? 's' : ''}
+                </p>
               </CardHeader>
               <CardContent>
                 {viewMode === 'grid' ? (

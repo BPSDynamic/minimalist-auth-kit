@@ -25,6 +25,7 @@ const mainItems = [
   { title: "My Files", url: "/dashboard", icon: FolderOpen },
   { title: "Share Files", url: "/dashboard/share", icon: Upload },
   { title: "Shared", url: "/dashboard/shared", icon: Share2 },
+  { title: "Folders", url: "/dashboard/folders", icon: FolderOpen },
   { title: "Trash", url: "/dashboard/trash", icon: Trash2 },
 ];
 
@@ -50,6 +51,9 @@ export function AppSidebar() {
     }
     if (path === "/dashboard/shared") {
       return currentPath === "/dashboard/shared";
+    }
+    if (path === "/dashboard/folders") {
+      return currentPath === "/dashboard/folders";
     }
     return currentPath.startsWith(path);
   };
