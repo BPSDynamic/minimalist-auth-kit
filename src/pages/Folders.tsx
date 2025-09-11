@@ -244,6 +244,55 @@ export default function Folders() {
         </div>
         <div className="flex items-center gap-2">
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const loadFoldersFromS3 = async () => {
+                try {
+                  const result = await s3Service.listFolders();
+                  if (!result.success || !result.folders) {
+                    console.error('Failed to list folders:', result.error);
+                    return;
+                  }
+
+                  const folderItems: FileItem[] = [];
+                  
+                  for (const folderId of result.folders) {
+                    try {
+                      const metadataResult = await s3Service.getFolderMetadata(folderId);
+                      if (metadataResult.success && metadataResult.metadata) {
+                        const metadata = metadataResult.metadata;
+                        folderItems.push({
+                          id: folderId,
+                          name: metadata.name,
+                          type: 'folder',
+                          size: '0 files',
+                          modified: new Date(metadata.createdAt).toLocaleDateString(),
+                          folder: 'Root',
+                          tags: [],
+                          confidentiality: 'internal',
+                          importance: 'low',
+                          allowSharing: true,
+                          allowedFileTypes: metadata.allowedFileTypes,
+                          s3FolderId: folderId
+                        });
+                      }
+                    } catch (error) {
+                      console.error(`Error loading metadata for folder ${folderId}:`, error);
+                    }
+                  }
+                  
+                  setFiles(folderItems);
+                } catch (error) {
+                  console.error('Error loading folders from S3:', error);
+                }
+              };
+              loadFoldersFromS3();
+            }}
+          >
+            Refresh
+          </Button>
+          <Button
             variant={viewMode === 'grid' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setViewMode('grid')}

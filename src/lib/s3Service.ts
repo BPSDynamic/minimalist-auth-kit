@@ -55,6 +55,7 @@ class S3Service {
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
     
     if (folderId) {
+      // folderId is now the actual folder name
       return `${folderId}/${timestamp}_${sanitizedFileName}`;
     }
     return `${timestamp}_${sanitizedFileName}`;
@@ -265,14 +266,18 @@ class S3Service {
       const user = await this.getCurrentUser();
       const identityId = await this.getIdentityId();
       
-      // Generate unique folder ID based on folder name and timestamp
-      const sanitizedName = folderName.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const folderId = `${sanitizedName}_${Date.now()}`;
+      // Use the original folder name as the folder key in S3
+      // Only sanitize for S3 compatibility (remove special characters that S3 doesn't allow)
+      const sanitizedName = folderName.replace(/[^a-zA-Z0-9.\-_\s]/g, '_').trim();
+      
+      // Generate unique folder ID for internal tracking (but keep original name for display)
+      const uniqueId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       // Create folder metadata
       const folderMetadata = {
-        id: folderId,
-        name: folderName,
+        id: uniqueId,
+        name: folderName, // Keep the original folder name
+        displayName: folderName, // Explicit display name
         type: 'folder',
         parentFolderId: parentFolderId || 'root',
         allowedFileTypes: allowedFileTypes || ['all'],
@@ -281,24 +286,25 @@ class S3Service {
         createdBy: (user as any).username || (user as any).userId || 'unknown',
       };
 
-      // Create the folder structure by uploading a placeholder file
+      // Use the sanitized folder name as the S3 key (what shows up in S3 console)
       const folderKey = parentFolderId 
-        ? `${parentFolderId}/${folderId}/.folder_placeholder`
-        : `${folderId}/.folder_placeholder`;
+        ? `${parentFolderId}/${sanitizedName}/.folder_placeholder`
+        : `${sanitizedName}/.folder_placeholder`;
 
       // Create a small placeholder file to establish the folder structure
       const placeholderBlob = new Blob(['FOLDER_PLACEHOLDER'], {
         type: 'text/plain'
       });
 
-      console.log('Creating folder with key:', folderKey);
+      console.log('Creating folder with name:', folderName);
+      console.log('Using S3 key:', folderKey);
 
       // Upload the placeholder file to create the folder structure
       const uploadResult = await uploadData({
         key: folderKey,
         data: placeholderBlob,
         options: {
-          accessLevel: 'guest',
+          accessLevel: 'public',
         },
       }).result;
 
@@ -306,8 +312,8 @@ class S3Service {
 
       // Now upload the metadata file
       const metadataKey = parentFolderId 
-        ? `${parentFolderId}/${folderId}/.folder_metadata.json`
-        : `${folderId}/.folder_metadata.json`;
+        ? `${parentFolderId}/${sanitizedName}/.folder_metadata.json`
+        : `${sanitizedName}/.folder_metadata.json`;
 
       const metadataBlob = new Blob([JSON.stringify(folderMetadata, null, 2)], {
         type: 'application/json'
@@ -319,7 +325,7 @@ class S3Service {
         key: metadataKey,
         data: metadataBlob,
         options: {
-          accessLevel: 'guest',
+          accessLevel: 'public',
         },
       }).result;
 
@@ -327,7 +333,7 @@ class S3Service {
 
       return {
         success: true,
-        folderId,
+        folderId: sanitizedName, // Return the folder name as the ID for consistency
       };
     } catch (error: any) {
       return {
@@ -352,7 +358,7 @@ class S3Service {
       const listResult = await list({
         prefix,
         options: {
-          accessLevel: 'guest',
+          accessLevel: 'public',
           listAll: true,
         },
       });
@@ -360,19 +366,64 @@ class S3Service {
       console.log('List result items:', listResult.items);
 
       // Filter for folder placeholder files to identify folders
-      const folders = listResult.items
+      const folderPromises = listResult.items
         .filter(item => (item as any).key.endsWith('.folder_placeholder'))
-        .map(item => {
-          // Extract folder ID from the key
+        .map(async (item) => {
+          // Extract folder name from the key
           const key = (item as any).key;
           const keyParts = key.split('/');
-          // For a key like "TREE_1757588153892/.folder_placeholder", the folder ID is "TREE_1757588153892"
-          const folderId = keyParts[keyParts.length - 2];
-          console.log('Found folder:', folderId, 'from key:', key);
-          return folderId;
+          
+          // Find the folder name (the part immediately before .folder_placeholder)
+          const placeholderIndex = keyParts.findIndex(part => part === '.folder_placeholder');
+          
+          if (placeholderIndex <= 0) {
+            console.warn('Invalid folder structure for key:', key);
+            return null;
+          }
+          
+          const folderName = keyParts[placeholderIndex - 1];
+          
+          // Additional validation
+          if (!folderName || folderName.trim() === '') {
+            console.warn('Empty folder name extracted from key:', key);
+            return null;
+          }
+          
+          console.log('Found folder:', folderName, 'from key:', key);
+          
+          // Try to get metadata for this folder
+          try {
+            const metadataResult = await this.getFolderMetadata(folderName, parentFolderId);
+            if (metadataResult.success) {
+              return {
+                id: folderName,
+                name: metadataResult.metadata.name || folderName,
+                displayName: metadataResult.metadata.displayName || metadataResult.metadata.name || folderName,
+                ...metadataResult.metadata
+              };
+            } else {
+              // Return basic folder info if metadata isn't available
+              return {
+                id: folderName,
+                name: folderName,
+                displayName: folderName,
+                type: 'folder'
+              };
+            }
+          } catch (error) {
+            console.warn('Failed to get metadata for folder:', folderName, error);
+            return {
+              id: folderName,
+              name: folderName,
+              displayName: folderName,
+              type: 'folder'
+            };
+          }
         });
 
-      console.log('Extracted folders:', folders);
+      const folders = (await Promise.all(folderPromises)).filter(folder => folder !== null);
+
+      console.log('Extracted folders with metadata:', folders);
 
       return {
         success: true,
@@ -413,7 +464,7 @@ class S3Service {
       await remove({
         key: metadataKey,
         options: {
-          accessLevel: 'guest',
+          accessLevel: 'public',
         },
       });
 
@@ -425,7 +476,7 @@ class S3Service {
       await remove({
         key: placeholderKey,
         options: {
-          accessLevel: 'guest',
+          accessLevel: 'public',
         },
       });
 
@@ -443,14 +494,24 @@ class S3Service {
   // Get folder metadata
   async getFolderMetadata(folderId: string, parentFolderId?: string): Promise<{ success: boolean; metadata?: any; error?: string }> {
     try {
+      // Validate input
+      if (!folderId || folderId.trim() === '' || folderId === 'undefined') {
+        return {
+          success: false,
+          error: 'Invalid folder ID provided',
+        };
+      }
+
       const metadataKey = parentFolderId 
         ? `${parentFolderId}/${folderId}/.folder_metadata.json`
         : `${folderId}/.folder_metadata.json`;
 
+      console.log('Fetching metadata for key:', metadataKey);
+
       const result = await downloadData({
         key: metadataKey,
         options: {
-          accessLevel: 'guest',
+          accessLevel: 'public',
         },
       }).result;
 
