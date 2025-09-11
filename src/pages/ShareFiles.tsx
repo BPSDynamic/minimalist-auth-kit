@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { s3Service, FileMetadata } from "@/lib/s3Service";
+import { authService } from "@/lib/authService";
 import { 
   Upload, 
   X, 
@@ -55,8 +56,30 @@ export default function ShareFiles() {
   const [shareLink, setShareLink] = useState('');
   const [isSharing, setIsSharing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  // Sender information from auth session
+  const [senderInfo, setSenderInfo] = useState<{name: string; surname: string; email: string} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Load sender information from auth session
+  useEffect(() => {
+    const loadSenderInfo = async () => {
+      try {
+        const user = await authService.getCurrentUser();
+        if (user) {
+          setSenderInfo({
+            name: user.firstName,
+            surname: user.lastName,
+            email: user.email,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load user information:', error);
+      }
+    };
+
+    loadSenderInfo();
+  }, []);
 
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) return Image;
@@ -208,6 +231,43 @@ export default function ShareFiles() {
     return '';
   };
 
+  const updateFilesWithSharingMetadata = async (shareLink: string, recipients: string[]) => {
+    // Update each uploaded file's metadata with sharing information
+    for (const uploadedFile of uploadedFiles) {
+      if (uploadedFile.metadata && uploadedFile.s3Key) {
+        try {
+          // Create updated metadata with sharing information
+          const updatedMetadata: FileMetadata = {
+            ...uploadedFile.metadata,
+            shareRecipients: recipients,
+            shareMessage: message.trim() || undefined,
+            shareExpirationDays: parseInt(expirationDays),
+            shareLink: shareLink,
+            shareSender: senderInfo ? {
+              name: senderInfo.name,
+              surname: senderInfo.surname,
+              email: senderInfo.email,
+            } : undefined,
+            updatedAt: new Date().toISOString(),
+          };
+
+          // Update the file metadata in S3
+          await s3Service.updateFileMetadata(uploadedFile.s3Key, updatedMetadata);
+          
+          // Update local state
+          setUploadedFiles(prev => prev.map(f => {
+            if (f.id === uploadedFile.id) {
+              return { ...f, metadata: updatedMetadata };
+            }
+            return f;
+          }));
+        } catch (error) {
+          console.error(`Failed to update metadata for file ${uploadedFile.name}:`, error);
+        }
+      }
+    }
+  };
+
   const handleShare = async () => {
     if (uploadedFiles.length === 0) {
       toast({
@@ -228,6 +288,16 @@ export default function ShareFiles() {
       return;
     }
 
+    // Validate sender information
+    if (!senderInfo || !senderInfo.name || !senderInfo.surname || !senderInfo.email) {
+      toast({
+        title: "Missing sender information",
+        description: "Unable to load your user information. Please try logging in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSharing(true);
     
     try {
@@ -235,6 +305,9 @@ export default function ShareFiles() {
       
       if (link) {
         setShareLink(link);
+        
+        // Update file metadata with sharing information
+        await updateFilesWithSharingMetadata(link, validRecipients);
         
         // Copy to clipboard
         await navigator.clipboard.writeText(link);

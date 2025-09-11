@@ -18,6 +18,16 @@ export interface FileMetadata {
   confidentiality?: 'public' | 'internal' | 'confidential' | 'restricted';
   importance?: 'low' | 'medium' | 'high' | 'critical';
   allowSharing?: boolean;
+  // Sharing metadata
+  shareRecipients?: string[];
+  shareMessage?: string;
+  shareExpirationDays?: number;
+  shareLink?: string;
+  shareSender?: {
+    name: string;
+    surname: string;
+    email: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -28,6 +38,16 @@ export interface UploadOptions {
   confidentiality?: 'public' | 'internal' | 'confidential' | 'restricted';
   importance?: 'low' | 'medium' | 'high' | 'critical';
   allowSharing?: boolean;
+  // Sharing options
+  shareRecipients?: string[];
+  shareMessage?: string;
+  shareExpirationDays?: number;
+  shareLink?: string;
+  shareSender?: {
+    name: string;
+    surname: string;
+    email: string;
+  };
   onProgress?: (progress: UploadProgress) => void;
 }
 
@@ -100,6 +120,12 @@ class S3Service {
         confidentiality: options.confidentiality || 'internal',
         importance: options.importance || 'medium',
         allowSharing: options.allowSharing ?? true,
+        // Include sharing metadata
+        shareRecipients: options.shareRecipients,
+        shareMessage: options.shareMessage,
+        shareExpirationDays: options.shareExpirationDays,
+        shareLink: options.shareLink,
+        shareSender: options.shareSender,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -157,6 +183,32 @@ class S3Service {
       return {
         success: false,
         error: error.message || 'Failed to get file URL',
+      };
+    }
+  }
+
+  // Update file metadata
+  async updateFileMetadata(s3Key: string, metadata: FileMetadata): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Create metadata key for the file
+      const metadataKey = `.metadata/files/${metadata.id}.json`;
+      
+      // Upload updated metadata
+      await uploadData({
+        key: metadataKey,
+        data: JSON.stringify(metadata, null, 2),
+        options: {
+          accessLevel: 'guest',
+        },
+      }).result;
+
+      return {
+        success: true,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to update file metadata',
       };
     }
   }
@@ -304,7 +356,7 @@ class S3Service {
         key: folderKey,
         data: placeholderBlob,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
         },
       }).result;
 
@@ -323,7 +375,7 @@ class S3Service {
         key: metadataKey,
         data: metadataBlob,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
         },
       }).result;
 
@@ -356,7 +408,7 @@ class S3Service {
       const listResult = await list({
         prefix,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
           listAll: true,
         },
       });
@@ -462,7 +514,7 @@ class S3Service {
       await remove({
         key: metadataKey,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
         },
       });
 
@@ -474,7 +526,7 @@ class S3Service {
       await remove({
         key: placeholderKey,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
         },
       });
 
@@ -509,7 +561,7 @@ class S3Service {
       const result = await downloadData({
         key: metadataKey,
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
         },
       }).result;
 
@@ -534,7 +586,7 @@ class S3Service {
       const listResult = await list({
         prefix: '.metadata/',
         options: {
-          accessLevel: 'public',
+          accessLevel: 'guest',
           listAll: true,
         },
       });
