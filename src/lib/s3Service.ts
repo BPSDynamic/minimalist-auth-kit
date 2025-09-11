@@ -352,14 +352,11 @@ class S3Service {
         .filter(item => (item as any).key.endsWith('.folder_placeholder'))
         .map(item => {
           // Extract folder ID from the key
-          const keyParts = (item as any).key.split('/');
-          const folderId = keyParts[keyParts.length - 2]; // folder ID is the parent directory
-          return {
-            id: folderId,
-            key: (item as any).key,
-            lastModified: (item as any).lastModified,
-            size: (item as any).size,
-          };
+          const key = (item as any).key;
+          const keyParts = key.split('/');
+          // For a key like "TREE_1757588153892/.folder_placeholder", the folder ID is "TREE_1757588153892"
+          const folderId = keyParts[keyParts.length - 2];
+          return folderId;
         });
 
       return {

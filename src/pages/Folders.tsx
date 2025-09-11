@@ -59,13 +59,19 @@ export default function Folders() {
   useEffect(() => {
     const loadFoldersFromS3 = async () => {
       try {
-        const folders = await s3Service.listFolders();
+        const result = await s3Service.listFolders();
+        if (!result.success || !result.folders) {
+          console.error('Failed to list folders:', result.error);
+          return;
+        }
+
         const folderItems: FileItem[] = [];
         
-        for (const folderId of folders) {
+        for (const folderId of result.folders) {
           try {
-            const metadata = await s3Service.getFolderMetadata(folderId);
-            if (metadata) {
+            const metadataResult = await s3Service.getFolderMetadata(folderId);
+            if (metadataResult.success && metadataResult.metadata) {
+              const metadata = metadataResult.metadata;
               folderItems.push({
                 id: folderId,
                 name: metadata.name,
@@ -106,14 +112,23 @@ export default function Folders() {
     }
 
     try {
-      const s3FolderId = await s3Service.createFolder(
+      const result = await s3Service.createFolder(
         newFolderName.trim(),
         undefined, // parentFolderId (Root)
         newFolderFileTypes.length > 0 ? newFolderFileTypes : ['all']
       );
 
+      if (!result.success || !result.folderId) {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create folder",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const newFolder: FileItem = {
-        id: s3FolderId,
+        id: result.folderId,
         name: newFolderName.trim(),
         type: 'folder',
         size: '0 files',
@@ -124,7 +139,7 @@ export default function Folders() {
         importance: 'low',
         allowSharing: true,
         allowedFileTypes: newFolderFileTypes.length > 0 ? newFolderFileTypes : ['all'],
-        s3FolderId: s3FolderId
+        s3FolderId: result.folderId
       };
 
       setFiles(prev => [...prev, newFolder]);
@@ -149,7 +164,16 @@ export default function Folders() {
   const handleDelete = async (name: string, id: string, isFolder: boolean = false) => {
     if (isFolder) {
       try {
-        await s3Service.deleteFolder(id);
+        const result = await s3Service.deleteFolder(id);
+        if (!result.success) {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to delete folder",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         setFiles(prev => prev.filter(file => file.id !== id));
         toast({
           title: "Success",
