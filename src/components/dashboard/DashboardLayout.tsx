@@ -14,7 +14,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <DashboardHeader />
-          <main className="flex-1 p-6 overflow-hidden">
+          <main className="flex-1 p-6 overflow-auto">
             {children}
           </main>
         </div>

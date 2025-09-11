@@ -4,6 +4,7 @@ import { AuthCard } from "./AuthCard";
 import { AuthInput } from "./AuthInput";
 import { AuthButton } from "./AuthButton";
 import { useToast } from "@/hooks/use-toast";
+import { authService } from "@/lib/authService";
 
 interface LoginFormProps {
   onToggleMode: (mode: "login" | "register" | "forgot") => void;
@@ -43,16 +44,34 @@ export const LoginForm = ({ onToggleMode }: LoginFormProps) => {
 
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
+    try {
+      const result = await authService.signIn({
+        email: formData.email,
+        password: formData.password,
       });
-      // Redirect to dashboard after successful login
-      navigate("/dashboard");
-    }, 1500);
+
+      if (result.success) {
+        toast({
+          title: "Welcome back!",
+          description: result.message,
+        });
+        navigate("/dashboard");
+      } else {
+        toast({
+          title: "Sign in failed",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Sign in failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {

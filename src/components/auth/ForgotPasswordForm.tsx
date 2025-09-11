@@ -4,6 +4,7 @@ import { AuthInput } from "./AuthInput";
 import { AuthButton } from "./AuthButton";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { authService } from "@/lib/authService";
 
 interface ForgotPasswordFormProps {
   onToggleMode: (mode: "login" | "register" | "forgot") => void;
@@ -67,15 +68,33 @@ export const ForgotPasswordForm = ({ onToggleMode }: ForgotPasswordFormProps) =>
     setLoading(true);
     setErrors({});
     
-    // Simulate API call to send OTP
-    setTimeout(() => {
-      setLoading(false);
-      setStep("reset");
-      toast({
-        title: "Code sent!",
-        description: "Check your email for the verification code.",
+    try {
+      const result = await authService.resetPassword({
+        email: formData.email,
       });
-    }, 1500);
+
+      if (result.success) {
+        setStep("reset");
+        toast({
+          title: "Code sent!",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Failed to send code",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to send code",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResetSubmit = async (e: React.FormEvent) => {
@@ -85,28 +104,73 @@ export const ForgotPasswordForm = ({ onToggleMode }: ForgotPasswordFormProps) =>
 
     setLoading(true);
     
-    // Simulate API call to reset password
-    setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Password reset successful!",
-        description: "You can now sign in with your new password.",
+    try {
+      const result = await authService.confirmResetPassword({
+        email: formData.email,
+        code: formData.code,
+        newPassword: formData.newPassword,
       });
-      onToggleMode("login");
-    }, 2000);
+
+      if (result.success) {
+        // Clear any existing session after password reset
+        try {
+          await authService.signOut();
+        } catch (error) {
+          // Ignore errors - this is just cleanup
+        }
+        
+        toast({
+          title: "Password reset successful!",
+          description: result.message,
+        });
+        onToggleMode("login");
+      } else {
+        toast({
+          title: "Password reset failed",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Password reset failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResendCode = async () => {
     setResendLoading(true);
     
-    // Simulate API call to resend OTP
-    setTimeout(() => {
-      setResendLoading(false);
-      toast({
-        title: "Code resent!",
-        description: "Check your email for the new verification code.",
+    try {
+      const result = await authService.resetPassword({
+        email: formData.email,
       });
-    }, 1000);
+
+      if (result.success) {
+        toast({
+          title: "Code resent!",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Failed to resend code",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to resend code",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setResendLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {

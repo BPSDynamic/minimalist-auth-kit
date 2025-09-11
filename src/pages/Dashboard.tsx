@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { UploadDialog } from "@/components/upload/UploadDialog";
+import { FileManager } from "@/components/upload/FileManager";
+import { FileMetadata, s3Service } from "@/lib/s3Service";
 import { 
   Upload, 
   Search, 
@@ -373,49 +376,78 @@ export default function Dashboard() {
 
     setIsUploading(true);
     
-    // Simulate upload progress
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      const newFile: FileItem = {
-        id: Date.now() + i,
-        name: file.name,
-        type: file.type.split('/')[0] || 'file',
-        size: formatFileSize(file.size),
-        modified: "Just now",
-        icon: getFileIcon(file.type.split('/')[0] || 'file'),
-        folder: uploadFolder,
-        tags: uploadTags,
-        confidentiality: uploadConfidentiality,
-        importance: uploadImportance,
-        allowSharing: allowSharing,
-        isUploading: true,
-        uploadProgress: 0
-      };
+    try {
+      // Upload files to S3
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const newFile: FileItem = {
+          id: Date.now() + i,
+          name: file.name,
+          type: file.type.split('/')[0] || 'file',
+          size: formatFileSize(file.size),
+          modified: "Just now",
+          icon: getFileIcon(file.type.split('/')[0] || 'file'),
+          folder: uploadFolder,
+          tags: uploadTags,
+          confidentiality: uploadConfidentiality,
+          importance: uploadImportance,
+          allowSharing: allowSharing,
+          isUploading: true,
+          uploadProgress: 0
+        };
 
-      setFiles(prev => [newFile, ...prev]);
+        setFiles(prev => [newFile, ...prev]);
 
-      // Simulate upload progress
-      for (let progress = 0; progress <= 100; progress += 10) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        setFiles(prev => prev.map(f => 
-          f.id === newFile.id ? { ...f, uploadProgress: progress } : f
-        ));
+        // Upload to S3 with progress tracking
+        const uploadOptions = {
+          folderId: uploadFolder === 'Root' ? undefined : uploadFolder,
+          tags: uploadTags,
+          confidentiality: uploadConfidentiality,
+          importance: uploadImportance,
+          allowSharing: allowSharing,
+          onProgress: (progress: any) => {
+            setFiles(prev => prev.map(f => 
+              f.id === newFile.id ? { ...f, uploadProgress: progress.percentage } : f
+            ));
+          },
+        };
+
+        const result = await s3Service.uploadFile(file, uploadOptions);
+        
+        if (result.success) {
+          // Mark upload as complete
+          setFiles(prev => prev.map(f => 
+            f.id === newFile.id ? { ...f, isUploading: false, uploadProgress: undefined } : f
+          ));
+        } else {
+          // Mark upload as failed
+          setFiles(prev => prev.map(f => 
+            f.id === newFile.id ? { 
+              ...f, 
+              isUploading: false, 
+              uploadProgress: undefined,
+              // You could add an error state here
+            } : f
+          ));
+        }
       }
 
-      // Mark upload as complete
-      setFiles(prev => prev.map(f => 
-        f.id === newFile.id ? { ...f, isUploading: false, uploadProgress: undefined } : f
-      ));
+      setIsUploading(false);
+      setSelectedFiles([]);
+      setShowUploadModal(false);
+      
+      toast({
+        title: "Upload complete",
+        description: `${selectedFiles.length} file(s) uploaded successfully`,
+      });
+    } catch (error: any) {
+      setIsUploading(false);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload files",
+        variant: "destructive",
+      });
     }
-
-    setIsUploading(false);
-    setSelectedFiles([]);
-    setShowUploadModal(false);
-    
-    toast({
-      title: "Upload complete",
-      description: `${selectedFiles.length} file(s) uploaded successfully`,
-    });
   };
 
   const formatFileSize = (bytes: number) => {
@@ -462,6 +494,14 @@ export default function Dashboard() {
     }
   };
 
+  const handleS3UploadComplete = (uploadedFiles: FileMetadata[]) => {
+    toast({
+      title: "Files uploaded successfully!",
+      description: `${uploadedFiles.length} file(s) uploaded to S3`,
+    });
+    // Refresh the file list or update the UI as needed
+  };
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -477,7 +517,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="flex flex-col space-y-6">
       {/* Clean Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">
@@ -709,23 +749,24 @@ export default function Dashboard() {
         </Card>
 
         {/* Upload Zone */}
-        <Card 
-          className="lg:col-span-2 border-dashed border-2 border-border/50 hover:border-primary/50 transition-all duration-200 cursor-pointer hover:bg-muted/20"
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
+        <Card className="lg:col-span-2 border-border/50">
           <CardContent className="p-6">
             <div className="flex items-center justify-center h-full">
-              <div className="text-center space-y-3">
-                <div className="p-3 rounded-full bg-primary/10 mx-auto w-fit">
-                  <Upload className="h-6 w-6 text-primary" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Drop files to upload</p>
-                  <p className="text-xs text-muted-foreground">or click to browse your device</p>
-                </div>
-              </div>
+              <UploadDialog
+                folderId={currentFolder === 'Root' ? undefined : currentFolder}
+                onUploadComplete={handleS3UploadComplete}
+                trigger={
+                  <div className="text-center space-y-3 cursor-pointer">
+                    <div className="p-3 rounded-full bg-primary/10 mx-auto w-fit">
+                      <Upload className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">Upload files to S3</p>
+                      <p className="text-xs text-muted-foreground">Click to open upload dialog</p>
+                    </div>
+                  </div>
+                }
+              />
             </div>
           </CardContent>
         </Card>
@@ -775,14 +816,26 @@ export default function Dashboard() {
         </div>
       </div>
 
-          {/* Files Grid/List - Flexible Height */}
-          <Card className="flex-1 min-h-0 border-border/50">
+
+          {/* S3 Files Manager */}
+          <FileManager
+            folderId={currentFolder === 'Root' ? undefined : currentFolder}
+            onFileDeleted={(fileId) => {
+              toast({
+                title: "File deleted",
+                description: "File has been removed from S3",
+              });
+            }}
+          />
+
+          {/* Files Grid/List */}
+          <Card className="border-border/50">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg font-semibold">
                 {currentFolder === 'Root' ? 'Recent Files' : `Files in ${currentFolder}`}
               </CardTitle>
             </CardHeader>
-        <CardContent className="h-full overflow-auto">
+        <CardContent>
           {viewMode === 'grid' ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {getCurrentFolderFiles().map((file) => {

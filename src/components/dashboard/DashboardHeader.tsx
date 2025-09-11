@@ -12,17 +12,41 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Settings, LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { authService } from "@/lib/authService";
 
 export const DashboardHeader = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  const handleLogout = () => {
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    });
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      const result = await authService.signOut();
+      if (result.success) {
+        toast({
+          title: "Logged out",
+          description: result.message,
+        });
+        navigate("/");
+      } else {
+        toast({
+          title: "Logout failed",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Logout failed",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
   return (
@@ -39,7 +63,7 @@ export const DashboardHeader = () => {
               <Avatar className="h-10 w-10">
                 <AvatarImage src="/placeholder-avatar.jpg" alt="Profile" />
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  JD
+                  {user ? getInitials(user.firstName, user.lastName) : "U"}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -47,9 +71,11 @@ export const DashboardHeader = () => {
           <DropdownMenuContent className="w-56 bg-card border-border" align="end">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">John Doe</p>
+                <p className="text-sm font-medium leading-none">
+                  {user ? `${user.firstName} ${user.lastName}` : "User"}
+                </p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  john.doe@example.com
+                  {user?.email || "user@example.com"}
                 </p>
               </div>
             </DropdownMenuLabel>

@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { s3Service, FileMetadata } from "@/lib/s3Service";
 import { 
   Upload, 
   X, 
@@ -42,6 +43,8 @@ interface UploadedFile {
   type: string;
   progress: number;
   status: 'uploading' | 'completed' | 'error';
+  s3Key?: string;
+  metadata?: FileMetadata;
 }
 
 export default function ShareFiles() {
@@ -72,7 +75,7 @@ export default function ShareFiles() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleFileSelect = useCallback((files: FileList) => {
+  const handleFileSelect = useCallback(async (files: FileList) => {
     const newFiles: UploadedFile[] = Array.from(files).map(file => ({
       id: Math.random().toString(36).substr(2, 9),
       file,
@@ -85,21 +88,67 @@ export default function ShareFiles() {
 
     setUploadedFiles(prev => [...prev, ...newFiles]);
 
-    // Simulate upload progress
-    newFiles.forEach(uploadedFile => {
-      const interval = setInterval(() => {
+    // Upload files to S3
+    for (let i = 0; i < newFiles.length; i++) {
+      const uploadedFile = newFiles[i];
+      
+      try {
+        const uploadOptions = {
+          folderId: 'shared', // Store shared files in a shared folder
+          tags: ['shared'],
+          confidentiality: 'public' as const,
+          importance: 'medium' as const,
+          allowSharing: true,
+          onProgress: (progress: any) => {
+            setUploadedFiles(prev => prev.map(f => {
+              if (f.id === uploadedFile.id) {
+                return { ...f, progress: progress.percentage };
+              }
+              return f;
+            }));
+          },
+        };
+
+        const result = await s3Service.uploadFile(uploadedFile.file, uploadOptions);
+        
+        if (result.success && result.fileMetadata) {
+          setUploadedFiles(prev => prev.map(f => {
+            if (f.id === uploadedFile.id) {
+              return { 
+                ...f, 
+                progress: 100, 
+                status: 'completed',
+                s3Key: result.fileMetadata!.s3Key,
+                metadata: result.fileMetadata
+              };
+            }
+            return f;
+          }));
+        } else {
+          setUploadedFiles(prev => prev.map(f => {
+            if (f.id === uploadedFile.id) {
+              return { 
+                ...f, 
+                status: 'error',
+                progress: 0
+              };
+            }
+            return f;
+          }));
+        }
+      } catch (error: any) {
         setUploadedFiles(prev => prev.map(f => {
           if (f.id === uploadedFile.id) {
-            if (f.progress >= 100) {
-              clearInterval(interval);
-              return { ...f, progress: 100, status: 'completed' };
-            }
-            return { ...f, progress: f.progress + 10 };
+            return { 
+              ...f, 
+              status: 'error',
+              progress: 0
+            };
           }
           return f;
         }));
-      }, 200);
-    });
+      }
+    }
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -137,10 +186,26 @@ export default function ShareFiles() {
     setRecipients(prev => prev.filter((_, i) => i !== index));
   };
 
-  const generateShareLink = () => {
-    // Mock share link generation
-    const linkId = Math.random().toString(36).substr(2, 12);
-    return `https://cloudvault.app/share/${linkId}`;
+  const generateShareLink = async () => {
+    // Generate actual S3 share URLs
+    const shareUrls: string[] = [];
+    
+    for (const uploadedFile of uploadedFiles) {
+      if (uploadedFile.s3Key && uploadedFile.status === 'completed') {
+        const result = await s3Service.getFileUrl(uploadedFile.s3Key, 7 * 24 * 3600); // 7 days expiry
+        if (result.success && result.url) {
+          shareUrls.push(result.url);
+        }
+      }
+    }
+    
+    if (shareUrls.length > 0) {
+      // For now, return the first file URL as the share link
+      // In a real app, you'd create a proper share endpoint
+      return shareUrls[0];
+    }
+    
+    return '';
   };
 
   const handleShare = async () => {
@@ -165,17 +230,35 @@ export default function ShareFiles() {
 
     setIsSharing(true);
     
-    // Simulate sharing process
-    setTimeout(() => {
-      const link = generateShareLink();
-      setShareLink(link);
-      setIsSharing(false);
+    try {
+      const link = await generateShareLink();
       
+      if (link) {
+        setShareLink(link);
+        
+        // Copy to clipboard
+        await navigator.clipboard.writeText(link);
+        
+        toast({
+          title: "Files shared successfully!",
+          description: `Share link sent to ${validRecipients.length} recipient(s)`,
+        });
+      } else {
+        toast({
+          title: "Failed to generate share link",
+          description: "Please try again",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
       toast({
-        title: "Files shared successfully!",
-        description: `Share link sent to ${validRecipients.length} recipient(s)`,
+        title: "Failed to share files",
+        description: error.message || "Please try again",
+        variant: "destructive",
       });
-    }, 2000);
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const copyLink = () => {

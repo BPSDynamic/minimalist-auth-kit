@@ -3,6 +3,8 @@ import { AuthCard } from "./AuthCard";
 import { AuthInput } from "./AuthInput";
 import { AuthButton } from "./AuthButton";
 import { useToast } from "@/hooks/use-toast";
+import { authService } from "@/lib/authService";
+import { EmailVerification } from "./EmailVerification";
 
 interface RegisterFormProps {
   onToggleMode: (mode: "login" | "register" | "forgot") => void;
@@ -18,6 +20,7 @@ export const RegisterForm = ({ onToggleMode }: RegisterFormProps) => {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showVerification, setShowVerification] = useState(false);
   const { toast } = useToast();
 
   const validateForm = () => {
@@ -60,15 +63,43 @@ export const RegisterForm = ({ onToggleMode }: RegisterFormProps) => {
 
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Account created!",
-        description: "Welcome to our platform. You can now sign in.",
+    try {
+      const result = await authService.signUp({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
       });
-      onToggleMode("login");
-    }, 2000);
+
+      if (result.success) {
+        // Clear any existing session before showing verification
+        try {
+          await authService.signOut();
+        } catch (error) {
+          // Ignore errors - this is just cleanup
+        }
+        
+        toast({
+          title: "Account created!",
+          description: result.message,
+        });
+        setShowVerification(true);
+      } else {
+        toast({
+          title: "Registration failed",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Registration failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -77,6 +108,16 @@ export const RegisterForm = ({ onToggleMode }: RegisterFormProps) => {
       setErrors(prev => ({ ...prev, [field]: "" }));
     }
   };
+
+  if (showVerification) {
+    return (
+      <EmailVerification
+        email={formData.email}
+        onVerified={() => onToggleMode("login")}
+        onBack={() => setShowVerification(false)}
+      />
+    );
+  }
 
   return (
     <AuthCard>
