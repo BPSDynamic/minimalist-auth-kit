@@ -81,6 +81,7 @@ interface FileItem {
   isUploading?: boolean;
   uploadProgress?: number;
   allowedFileTypes?: string[]; // For folders only
+  s3FolderId?: string; // S3 folder ID for deletion
 }
 
 export default function Dashboard() {
@@ -232,26 +233,59 @@ export default function Dashboard() {
       try {
         const result = await s3Service.listFolders(currentFolder === 'Root' ? undefined : currentFolder);
         if (result.success && result.folders) {
-          // Convert S3 folders to FileItem format and add to local state
-          const s3Folders: FileItem[] = result.folders.map((folder: any, index: number) => ({
-            id: Date.now() + index,
-            name: `S3 Folder ${index + 1}`, // We'll need to fetch the actual name from metadata
-            type: "folder",
-            size: "0 files",
-            modified: new Date(folder.lastModified).toLocaleDateString(),
-            icon: Folder,
-            folder: currentFolder,
-            tags: [],
-            confidentiality: "internal",
-            importance: "medium",
-            allowSharing: true,
-            allowedFileTypes: ['all']
-          }));
+          // Load metadata for each folder to get the actual folder names
+          const s3Folders: FileItem[] = await Promise.all(
+            result.folders.map(async (folder: any, index: number) => {
+              try {
+                const metadataResult = await s3Service.getFolderMetadata(
+                  folder.id, 
+                  currentFolder === 'Root' ? undefined : currentFolder
+                );
+                
+                if (metadataResult.success && metadataResult.metadata) {
+                  return {
+                    id: Date.now() + index,
+                    name: metadataResult.metadata.name,
+                    type: "folder",
+                    size: "0 files",
+                    modified: new Date(folder.lastModified).toLocaleDateString(),
+                    icon: Folder,
+                    folder: currentFolder,
+                    tags: [],
+                    confidentiality: "internal",
+                    importance: "medium",
+                    allowSharing: true,
+                    allowedFileTypes: metadataResult.metadata.allowedFileTypes || ['all']
+                  };
+                } else {
+                  // Fallback if metadata can't be loaded
+                  return {
+                    id: Date.now() + index,
+                    name: `Folder ${index + 1}`,
+                    type: "folder",
+                    size: "0 files",
+                    modified: new Date(folder.lastModified).toLocaleDateString(),
+                    icon: Folder,
+                    folder: currentFolder,
+                    tags: [],
+                    confidentiality: "internal",
+                    importance: "medium",
+                    allowSharing: true,
+                    allowedFileTypes: ['all']
+                  };
+                }
+              } catch (error) {
+                console.error('Failed to load folder metadata:', error);
+                return null;
+              }
+            })
+          );
           
-          // Add S3 folders to the existing files (avoid duplicates)
+          // Filter out null results and add S3 folders to the existing files (avoid duplicates)
+          const validFolders = s3Folders.filter(f => f !== null) as FileItem[];
           setFiles(prev => {
             const existingFolderNames = prev.filter(f => f.type === 'folder').map(f => f.name);
-            const newFolders = s3Folders.filter(f => !existingFolderNames.includes(f.name));
+            const newFolders = validFolders.filter(f => !existingFolderNames.includes(f.name));
             return [...prev, ...newFolders];
           });
         }
@@ -319,9 +353,12 @@ export default function Dashboard() {
         // Find the folder in the files array to get its details
         const folder = files.find(f => f.name === fileName && f.type === 'folder');
         if (folder) {
+          // Use the stored S3 folder ID if available, otherwise try to construct it
+          const folderId = folder.s3FolderId || folder.name.replace(/[^a-zA-Z0-9.-]/g, '_') + '_' + Date.now();
+          
           // Delete folder from S3
           const result = await s3Service.deleteFolder(
-            `folder_${folder.id}`, // Use the folder ID as the S3 folder ID
+            folderId,
             currentFolder === 'Root' ? undefined : currentFolder
           );
 
@@ -417,7 +454,7 @@ export default function Dashboard() {
       );
 
       if (result.success && result.folderId) {
-        // Add folder to local state
+        // Add folder to local state with the S3 folder ID
         const newFolder: FileItem = {
           id: Date.now(),
           name: newFolderName,
@@ -430,7 +467,8 @@ export default function Dashboard() {
           confidentiality: "internal",
           importance: "medium",
           allowSharing: true,
-          allowedFileTypes: selectedFolderFileTypes.length > 0 ? selectedFolderFileTypes : ['all']
+          allowedFileTypes: selectedFolderFileTypes.length > 0 ? selectedFolderFileTypes : ['all'],
+          s3FolderId: result.folderId // Store the S3 folder ID for deletion
         };
 
         setFiles(prev => [newFolder, ...prev]);

@@ -265,10 +265,11 @@ class S3Service {
       const user = await this.getCurrentUser();
       const identityId = await this.getIdentityId();
       
-      // Generate unique folder ID
-      const folderId = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Generate unique folder ID based on folder name and timestamp
+      const sanitizedName = folderName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const folderId = `${sanitizedName}_${Date.now()}`;
       
-      // Create folder metadata file
+      // Create folder metadata
       const folderMetadata = {
         id: folderId,
         name: folderName,
@@ -280,8 +281,27 @@ class S3Service {
         createdBy: (user as any).username || (user as any).userId || 'unknown',
       };
 
-      // Create a placeholder file to represent the folder
+      // Create the folder structure by uploading a placeholder file
       const folderKey = parentFolderId 
+        ? `${parentFolderId}/${folderId}/.folder_placeholder`
+        : `${folderId}/.folder_placeholder`;
+
+      // Create a small placeholder file to establish the folder structure
+      const placeholderBlob = new Blob(['FOLDER_PLACEHOLDER'], {
+        type: 'text/plain'
+      });
+
+      // Upload the placeholder file to create the folder structure
+      await uploadData({
+        key: folderKey,
+        data: placeholderBlob,
+        options: {
+          accessLevel: 'guest',
+        },
+      }).result;
+
+      // Now upload the metadata file
+      const metadataKey = parentFolderId 
         ? `${parentFolderId}/${folderId}/.folder_metadata.json`
         : `${folderId}/.folder_metadata.json`;
 
@@ -290,7 +310,7 @@ class S3Service {
       });
 
       await uploadData({
-        key: folderKey,
+        key: metadataKey,
         data: metadataBlob,
         options: {
           accessLevel: 'guest',
@@ -327,9 +347,9 @@ class S3Service {
         },
       });
 
-      // Filter for folder metadata files
+      // Filter for folder placeholder files to identify folders
       const folders = listResult.items
-        .filter(item => (item as any).key.endsWith('.folder_metadata.json'))
+        .filter(item => (item as any).key.endsWith('.folder_placeholder'))
         .map(item => {
           // Extract folder ID from the key
           const keyParts = (item as any).key.split('/');
@@ -374,12 +394,24 @@ class S3Service {
       }
 
       // Delete the folder metadata file
-      const folderKey = parentFolderId 
+      const metadataKey = parentFolderId 
         ? `${parentFolderId}/${folderId}/.folder_metadata.json`
         : `${folderId}/.folder_metadata.json`;
 
       await remove({
-        key: folderKey,
+        key: metadataKey,
+        options: {
+          accessLevel: 'guest',
+        },
+      });
+
+      // Delete the folder placeholder file
+      const placeholderKey = parentFolderId 
+        ? `${parentFolderId}/${folderId}/.folder_placeholder`
+        : `${folderId}/.folder_placeholder`;
+
+      await remove({
+        key: placeholderKey,
         options: {
           accessLevel: 'guest',
         },
@@ -392,6 +424,35 @@ class S3Service {
       return {
         success: false,
         error: error.message || 'Failed to delete folder',
+      };
+    }
+  }
+
+  // Get folder metadata
+  async getFolderMetadata(folderId: string, parentFolderId?: string): Promise<{ success: boolean; metadata?: any; error?: string }> {
+    try {
+      const metadataKey = parentFolderId 
+        ? `${parentFolderId}/${folderId}/.folder_metadata.json`
+        : `${folderId}/.folder_metadata.json`;
+
+      const result = await downloadData({
+        key: metadataKey,
+        options: {
+          accessLevel: 'guest',
+        },
+      }).result;
+
+      const metadataText = await (result.body as any).text();
+      const metadata = JSON.parse(metadataText);
+
+      return {
+        success: true,
+        metadata,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get folder metadata',
       };
     }
   }
