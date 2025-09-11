@@ -297,13 +297,18 @@ export default function Dashboard() {
     loadFoldersFromS3();
   }, [currentFolder]);
 
-  // Filter files based on current folder
+  // Filter files and folders based on current folder
   const getCurrentFolderFiles = () => {
-    return files.filter(file => file.folder === currentFolder);
+    return files.filter(file => file.folder === currentFolder && file.type !== 'folder');
   };
 
   const getCurrentFolderFolders = () => {
     return files.filter(file => file.type === 'folder' && file.folder === currentFolder);
+  };
+
+  // Get all folders (for root view)
+  const getAllFolders = () => {
+    return files.filter(file => file.type === 'folder');
   };
 
   // Available folders and tags
@@ -839,7 +844,7 @@ export default function Dashboard() {
                   Root
                 </div>
               </button>
-              {getCurrentFolderFolders().map((folder) => (
+              {getAllFolders().map((folder) => (
                 <button
                   key={folder.id}
                   onClick={() => handleFolderClick(folder.name)}
@@ -963,153 +968,77 @@ export default function Dashboard() {
             }}
           />
 
-          {/* Files Grid/List */}
-          <Card className="border-border/50">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold">
-                {currentFolder === 'Root' ? 'Recent Files' : `Files in ${currentFolder}`}
-              </CardTitle>
-            </CardHeader>
-        <CardContent>
-          {viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              {getCurrentFolderFiles().map((file) => {
-                const IconComponent = getFileIcon(file.type);
-                return (
-                  <div
-                    key={file.id}
-                    className="group relative p-3 border rounded-lg hover:shadow-sm transition-all duration-200 cursor-pointer hover:border-primary/50"
-                    onClick={() => file.type === 'folder' ? handleFolderClick(file.name) : undefined}
-                  >
-                    <div className="flex flex-col items-center text-center space-y-2">
-                      <div className={`${getFileTypeColor(file.type)}`}>
-                        <IconComponent className="h-8 w-8" />
-                      </div>
-                      <div className="w-full">
-                        <p className="font-medium text-xs truncate" title={file.name}>
-                          {file.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{file.size}</p>
-                        <p className="text-xs text-muted-foreground">{file.modified}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Badge className={`text-xs px-1 py-0 ${getConfidentialityColor(file.confidentiality)}`}>
-                            {file.confidentiality}
-                          </Badge>
-                          {file.importance !== 'low' && (
-                            <Badge className={`text-xs px-1 py-0 ${getImportanceColor(file.importance)}`}>
-                              {file.importance}
-                            </Badge>
-                          )}
-                          {!file.allowSharing && (
-                            <Lock className="h-3 w-3 text-red-500" />
-                          )}
-                        </div>
-                        {file.type === 'folder' && file.allowedFileTypes && (
-                          <div className="mt-1">
-                            <p className="text-xs text-muted-foreground">
-                              {file.allowedFileTypes.includes('all') 
-                                ? 'All file types' 
-                                : `${file.allowedFileTypes.length} file type${file.allowedFileTypes.length > 1 ? 's' : ''}`
-                              }
-                            </p>
-                          </div>
-                        )}
-                        {file.isUploading && (
-                          <div className="mt-1">
-                            <Progress value={file.uploadProgress} className="h-1" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                        >
-                          <MoreHorizontal className="h-3 w-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {file.type === 'folder' ? (
-                          <>
-                            <DropdownMenuItem onClick={() => handleFolderClick(file.name)}>
-                              <FolderOpen className="h-4 w-4 mr-2" />
-                              Open Folder
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Share2 className="h-4 w-4 mr-2" />
-                              Share Folder
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              className="text-red-600"
-                              onClick={() => handleDelete(file.name, file.id, true)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete Folder
-                            </DropdownMenuItem>
-                          </>
-                        ) : (
-                          <>
-                            <DropdownMenuItem>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Share2 className="h-4 w-4 mr-2" />
-                              Share
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              className="text-red-600"
-                              onClick={() => handleDelete(file.name)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Move to Trash
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+          {/* Folders Section - Show when in Root */}
+          {currentFolder === 'Root' && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold">Folders</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {getAllFolders().length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Folder className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No folders yet</p>
+                    <p className="text-sm">Create your first folder to get started</p>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {getCurrentFolderFiles().map((file) => {
-                const IconComponent = getFileIcon(file.type);
-                return (
-                  <div
-                    key={file.id}
-                    className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md transition-colors cursor-pointer"
-                    onClick={() => file.type === 'folder' ? handleFolderClick(file.name) : undefined}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={getFileTypeColor(file.type)}>
-                        <IconComponent className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">{file.modified}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">{file.size}</span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <MoreHorizontal className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {file.type === 'folder' ? (
-                            <>
-                              <DropdownMenuItem onClick={() => handleFolderClick(file.name)}>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    {getAllFolders().map((folder) => {
+                      const IconComponent = getFileIcon(folder.type);
+                      return (
+                        <div
+                          key={folder.id}
+                          className="group relative p-3 border rounded-lg hover:shadow-sm transition-all duration-200 cursor-pointer hover:border-primary/50"
+                          onClick={() => handleFolderClick(folder.name)}
+                        >
+                          <div className="flex flex-col items-center text-center space-y-2">
+                            <div className={`${getFileTypeColor(folder.type)}`}>
+                              <IconComponent className="h-8 w-8" />
+                            </div>
+                            <div className="w-full">
+                              <p className="font-medium text-xs truncate" title={folder.name}>
+                                {folder.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{folder.size}</p>
+                              <p className="text-xs text-muted-foreground">{folder.modified}</p>
+                              <div className="flex items-center gap-1 mt-1">
+                                <Badge className={`text-xs px-1 py-0 ${getConfidentialityColor(folder.confidentiality)}`}>
+                                  {folder.confidentiality}
+                                </Badge>
+                                {folder.importance !== 'low' && (
+                                  <Badge className={`text-xs px-1 py-0 ${getImportanceColor(folder.importance)}`}>
+                                    {folder.importance}
+                                  </Badge>
+                                )}
+                                {!folder.allowSharing && (
+                                  <Lock className="h-3 w-3 text-red-500" />
+                                )}
+                              </div>
+                              {folder.type === 'folder' && folder.allowedFileTypes && (
+                                <div className="mt-1">
+                                  <p className="text-xs text-muted-foreground">
+                                    {folder.allowedFileTypes.includes('all') 
+                                      ? 'All file types' 
+                                      : `${folder.allowedFileTypes.length} file type${folder.allowedFileTypes.length > 1 ? 's' : ''}`
+                                    }
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                              >
+                                <MoreHorizontal className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleFolderClick(folder.name)}>
                                 <FolderOpen className="h-4 w-4 mr-2" />
                                 Open Folder
                               </DropdownMenuItem>
@@ -1120,14 +1049,82 @@ export default function Dashboard() {
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-red-600"
-                                onClick={() => handleDelete(file.name, file.id, true)}
+                                onClick={() => handleDelete(folder.name, folder.id, true)}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete Folder
                               </DropdownMenuItem>
-                            </>
-                          ) : (
-                            <>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Files Section - Show when inside a folder or when there are files in root */}
+          {getCurrentFolderFiles().length > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold">
+                  {currentFolder === 'Root' ? 'Files' : `Files in ${currentFolder}`}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    {getCurrentFolderFiles().map((file) => {
+                      const IconComponent = getFileIcon(file.type);
+                      return (
+                        <div
+                          key={file.id}
+                          className="group relative p-3 border rounded-lg hover:shadow-sm transition-all duration-200 cursor-pointer hover:border-primary/50"
+                        >
+                          <div className="flex flex-col items-center text-center space-y-2">
+                            <div className={`${getFileTypeColor(file.type)}`}>
+                              <IconComponent className="h-8 w-8" />
+                            </div>
+                            <div className="w-full">
+                              <p className="font-medium text-xs truncate" title={file.name}>
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{file.size}</p>
+                              <p className="text-xs text-muted-foreground">{file.modified}</p>
+                              <div className="flex items-center gap-1 mt-1">
+                                <Badge className={`text-xs px-1 py-0 ${getConfidentialityColor(file.confidentiality)}`}>
+                                  {file.confidentiality}
+                                </Badge>
+                                {file.importance !== 'low' && (
+                                  <Badge className={`text-xs px-1 py-0 ${getImportanceColor(file.importance)}`}>
+                                    {file.importance}
+                                  </Badge>
+                                )}
+                                {!file.allowSharing && (
+                                  <Lock className="h-3 w-3 text-red-500" />
+                                )}
+                              </div>
+                              {file.isUploading && (
+                                <div className="mt-1">
+                                  <Progress value={file.uploadProgress} className="h-1" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                              >
+                                <MoreHorizontal className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
                               <DropdownMenuItem>
                                 <Download className="h-4 w-4 mr-2" />
                                 Download
@@ -1144,18 +1141,67 @@ export default function Dashboard() {
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Move to Trash
                               </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                ) : (
+                  <div className="space-y-1">
+                    {getCurrentFolderFiles().map((file) => {
+                      const IconComponent = getFileIcon(file.type);
+                      return (
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={getFileTypeColor(file.type)}>
+                              <IconComponent className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">{file.modified}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">{file.size}</span>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                  <MoreHorizontal className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Share2 className="h-4 w-4 mr-2" />
+                                  Share
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  className="text-red-600"
+                                  onClick={() => handleDelete(file.name)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Move to Trash
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
         </div>
       </div>
 
