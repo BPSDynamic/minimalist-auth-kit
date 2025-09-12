@@ -180,7 +180,7 @@ export const FileManager = ({
 
   const handleShare = async (file: FileItem) => {
     try {
-      const result = await s3Service.getFileUrl(file.s3Key, 3600); // 1 hour expiry
+      const result = await s3Service.getFileUrl(file.s3Key, 86400); // 24 hour expiry
       
       if (result.success && result.url) {
         // Copy to clipboard
@@ -188,7 +188,7 @@ export const FileManager = ({
         
         toast({
           title: "Share link copied",
-          description: "Share link has been copied to clipboard",
+          description: "Share link has been copied to clipboard (valid for 24 hours)",
         });
       } else {
         toast({

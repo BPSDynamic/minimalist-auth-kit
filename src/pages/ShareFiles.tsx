@@ -215,7 +215,7 @@ export default function ShareFiles() {
     
     for (const uploadedFile of uploadedFiles) {
       if (uploadedFile.s3Key && uploadedFile.status === 'completed') {
-        const result = await s3Service.getFileUrl(uploadedFile.s3Key, 7 * 24 * 3600); // 7 days expiry
+        const result = await s3Service.getFileUrl(uploadedFile.s3Key, 7 * 24 * 3600); // 7 days expiry for sharing
         if (result.success && result.url) {
           shareUrls.push(result.url);
         }

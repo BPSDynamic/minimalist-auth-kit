@@ -165,13 +165,13 @@ class S3Service {
   }
 
   // Get file download URL
-  async getFileUrl(s3Key: string, expiresIn: number = 3600): Promise<{ success: boolean; url?: string; error?: string }> {
+  async getFileUrl(s3Key: string, expiresIn: number = 86400): Promise<{ success: boolean; url?: string; error?: string }> {
     try {
       const url = await getUrl({
         key: s3Key,
         options: {
           accessLevel: 'guest',
-          expiresIn, // URL expires in 1 hour by default
+          expiresIn, // URL expires in 24 hours by default
         },
       });
 
@@ -180,11 +180,18 @@ class S3Service {
         url: url.url.toString(),
       };
     } catch (error: any) {
+      console.error('Error getting file URL:', error);
       return {
         success: false,
         error: error.message || 'Failed to get file URL',
       };
     }
+  }
+
+  // Refresh file URL if expired
+  async refreshFileUrl(s3Key: string): Promise<{ success: boolean; url?: string; error?: string }> {
+    console.log('Refreshing expired URL for:', s3Key);
+    return this.getFileUrl(s3Key, 86400); // 24 hours
   }
 
   // Update file metadata
