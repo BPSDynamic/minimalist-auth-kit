@@ -27,6 +27,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { s3Service } from "@/lib/s3Service";
+import { dynamoService } from "@/lib/dynamoService";
+import { lambdaService } from "@/lib/lambdaService";
+import { authService } from "@/lib/authService";
 
 interface FileItem {
   id: string;
@@ -55,40 +58,74 @@ export default function Folders() {
     'all', 'documents', 'images', 'videos', 'audio', 'archives', 'code', 'data'
   ];
 
-  // Load folders from S3
+  // Load all folders from DynamoDB
   useEffect(() => {
-    const loadFoldersFromS3 = async () => {
+    const loadAllFoldersFromDynamo = async () => {
       try {
-        const result = await s3Service.listFolders();
+        // Get all folders from DynamoDB - much simpler and more reliable
+        const result = await dynamoService.getAllFolders();
+        
         if (!result.success || !result.folders) {
-          console.error('Failed to list folders:', result.error);
+          console.error('Failed to load folders from DynamoDB:', result.error);
           return;
         }
 
-        // The new listFolders method returns full folder objects with metadata
-        const folderItems: FileItem[] = result.folders.map((folder: any) => ({
-          id: folder.id || folder.name,
-          name: folder.name || folder.displayName,
+        // Convert to FileItem format
+        const folderItems: FileItem[] = result.folders.map((folder) => ({
+          id: folder.id,
+          name: folder.name,
           type: 'folder',
           size: '0 files',
-          modified: new Date(folder.createdAt || Date.now()).toLocaleDateString(),
-          folder: 'Root',
+          modified: new Date(folder.createdAt).toLocaleDateString(),
+          folder: folder.parentId ? 'Subfolder' : 'Root',
           tags: [],
-          confidentiality: 'internal',
-          importance: 'low',
-          allowSharing: true,
-          allowedFileTypes: folder.allowedFileTypes || ['all'],
-          s3FolderId: folder.id || folder.name
+          confidentiality: folder.confidentiality,
+          importance: folder.importance,
+          allowSharing: folder.allowSharing,
+          allowedFileTypes: folder.allowedFileTypes,
+          s3FolderId: folder.id
         }));
         
+        console.log('Loaded folders from DynamoDB:', folderItems);
+        console.log('Total folders found:', folderItems.length);
         setFiles(folderItems);
       } catch (error) {
-        console.error('Error loading folders from S3:', error);
+        console.error('Error loading folders from DynamoDB:', error);
       }
     };
 
-    loadFoldersFromS3();
+    loadAllFoldersFromDynamo();
   }, []);
+
+  // Load folders from Lambda function
+  const loadFoldersFromLambda = async () => {
+    try {
+      const currentUser = await authService.getCurrentUser();
+      if (!currentUser) return;
+
+      const result = await lambdaService.getFolders(currentUser.email);
+      if (result.success && result.folders) {
+        const lambdaFolders: FileItem[] = result.folders.map((folder: any) => ({
+          id: folder.id,
+          name: folder.name,
+          type: 'folder',
+          size: '0 files',
+          modified: new Date(folder.createdAt).toLocaleDateString(),
+          folder: 'Root',
+          tags: [],
+          confidentiality: folder.confidentiality,
+          importance: folder.importance,
+          allowSharing: folder.allowSharing,
+          allowedFileTypes: folder.allowedFileTypes || ['all'],
+          s3FolderId: folder.id
+        }));
+
+        setFiles(lambdaFolders);
+      }
+    } catch (error) {
+      console.error('Failed to load folders from Lambda:', error);
+    }
+  };
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) {
@@ -101,11 +138,28 @@ export default function Folders() {
     }
 
     try {
-      const result = await s3Service.createFolder(
-        newFolderName.trim(),
-        undefined, // parentFolderId (Root)
-        newFolderFileTypes.length > 0 ? newFolderFileTypes : ['all']
-      );
+      // Get current user for Lambda function
+      const currentUser = await authService.getCurrentUser();
+      if (!currentUser) {
+        toast({
+          title: "Error",
+          description: "Please sign in to create folders",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create folder using Lambda function
+      const result = await lambdaService.createFolder({
+        userEmail: currentUser.email,
+        userId: currentUser.id,
+        folderName: newFolderName.trim(),
+        parentFolderId: undefined, // Root folder
+        allowedFileTypes: newFolderFileTypes.length > 0 ? newFolderFileTypes : ['all'],
+        confidentiality: 'internal',
+        importance: 'low',
+        allowSharing: true,
+      });
 
       if (!result.success || !result.folderId) {
         toast({
@@ -116,22 +170,31 @@ export default function Folders() {
         return;
       }
 
-      const newFolder: FileItem = {
-        id: result.folderId,
-        name: newFolderName.trim(),
-        type: 'folder',
-        size: '0 files',
-        modified: new Date().toLocaleDateString(),
-        folder: 'Root',
-        tags: [],
-        confidentiality: 'internal',
-        importance: 'low',
-        allowSharing: true,
-        allowedFileTypes: newFolderFileTypes.length > 0 ? newFolderFileTypes : ['all'],
-        s3FolderId: result.folderId
-      };
+      // Track analytics
+      await lambdaService.trackEvent({
+        userId: currentUser.id,
+        userEmail: currentUser.email,
+        eventType: 'folder_create',
+        eventData: {
+          folderName: newFolderName.trim(),
+          folderId: result.folderId,
+        },
+      });
 
-      setFiles(prev => [...prev, newFolder]);
+      // Send notification
+      await lambdaService.sendNotification({
+        type: 'folder_created',
+        userId: currentUser.id,
+        userEmail: currentUser.email,
+        userName: `${currentUser.firstName} ${currentUser.lastName}`,
+        data: {
+          folderName: newFolderName.trim(),
+        },
+      });
+
+      // Refresh folders from Lambda
+      await loadFoldersFromLambda();
+
       setNewFolderName("");
       setNewFolderFileTypes([]);
       setShowCreateFolderModal(false);
@@ -153,7 +216,7 @@ export default function Folders() {
   const handleDelete = async (name: string, id: string, isFolder: boolean = false) => {
     if (isFolder) {
       try {
-        const result = await s3Service.deleteFolder(id);
+        const result = await dynamoService.deleteFolder(id);
         if (!result.success) {
           toast({
             title: "Error",
@@ -236,36 +299,40 @@ export default function Folders() {
             variant="outline"
             size="sm"
             onClick={() => {
-              const loadFoldersFromS3 = async () => {
+              const loadAllFoldersFromDynamo = async () => {
                 try {
-                  const result = await s3Service.listFolders();
+                  // Get all folders from DynamoDB - much simpler and more reliable
+                  const result = await dynamoService.getAllFolders();
+                  
                   if (!result.success || !result.folders) {
-                    console.error('Failed to list folders:', result.error);
+                    console.error('Failed to load folders from DynamoDB:', result.error);
                     return;
                   }
 
-                  // The new listFolders method returns full folder objects with metadata
-                  const folderItems: FileItem[] = result.folders.map((folder: any) => ({
-                    id: folder.id || folder.name,
-                    name: folder.name || folder.displayName,
+                  // Convert to FileItem format
+                  const folderItems: FileItem[] = result.folders.map((folder) => ({
+                    id: folder.id,
+                    name: folder.name,
                     type: 'folder',
                     size: '0 files',
-                    modified: new Date(folder.createdAt || Date.now()).toLocaleDateString(),
-                    folder: 'Root',
+                    modified: new Date(folder.createdAt).toLocaleDateString(),
+                    folder: folder.parentId ? 'Subfolder' : 'Root',
                     tags: [],
-                    confidentiality: 'internal',
-                    importance: 'low',
-                    allowSharing: true,
-                    allowedFileTypes: folder.allowedFileTypes || ['all'],
-                    s3FolderId: folder.id || folder.name
+                    confidentiality: folder.confidentiality,
+                    importance: folder.importance,
+                    allowSharing: folder.allowSharing,
+                    allowedFileTypes: folder.allowedFileTypes,
+                    s3FolderId: folder.id
                   }));
                   
+                  console.log('Refreshed folders from DynamoDB:', folderItems);
+                  console.log('Total folders found on refresh:', folderItems.length);
                   setFiles(folderItems);
                 } catch (error) {
-                  console.error('Error loading folders from S3:', error);
+                  console.error('Error loading folders from DynamoDB:', error);
                 }
               };
-              loadFoldersFromS3();
+              loadAllFoldersFromDynamo();
             }}
           >
             Refresh

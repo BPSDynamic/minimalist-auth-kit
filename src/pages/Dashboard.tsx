@@ -10,6 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import { UploadDialog } from "@/components/upload/UploadDialog";
 import { FileManager } from "@/components/upload/FileManager";
 import { FileMetadata, s3Service } from "@/lib/s3Service";
+import { lambdaService } from "@/lib/lambdaService";
+import { authService } from "@/lib/authService";
+import { dynamoService } from "@/lib/dynamoService";
 import { 
   Upload, 
   Search, 
@@ -112,43 +115,122 @@ export default function Dashboard() {
     setUploadFolder(currentFolder);
   }, [currentFolder]);
 
-  // Load folders from S3 when component mounts
+  // Load folders from DynamoDB when component mounts
   useEffect(() => {
-    const loadFoldersFromS3 = async () => {
+    const loadFoldersFromDynamoDB = async () => {
       try {
-        const result = await s3Service.listFolders(currentFolder === 'Root' ? undefined : currentFolder);
+        const result = await dynamoService.getAllFolders();
         if (result.success && result.folders) {
-          // The new listFolders method returns full folder objects with metadata
-          const s3Folders: FileItem[] = result.folders.map((folder: any, index: number) => ({
-            id: Date.now() + index,
-            name: folder.name || folder.displayName,
+          // Filter folders for current folder context
+          const currentFolderId = currentFolder === 'Root' ? undefined : currentFolder;
+          const relevantFolders = result.folders.filter((folder: any) => 
+            currentFolderId ? folder.parentId === currentFolderId : !folder.parentId
+          );
+          
+          const dynamoFolders: FileItem[] = relevantFolders.map((folder: any) => ({
+            id: folder.id,
+            name: folder.name,
             type: "folder",
             size: "0 files",
-            modified: new Date(folder.createdAt || Date.now()).toLocaleDateString(),
+            modified: new Date(folder.createdAt).toLocaleDateString(),
             icon: Folder,
             folder: currentFolder,
             tags: [],
-            confidentiality: "internal" as const,
-            importance: "medium" as const,
-            allowSharing: true,
+            confidentiality: folder.confidentiality || "internal",
+            importance: folder.importance || "medium",
+            allowSharing: folder.allowSharing !== false,
             allowedFileTypes: folder.allowedFileTypes || ['all'],
-            s3FolderId: folder.id || folder.name
+            s3FolderId: folder.id
           }));
           
           setFiles(prev => {
             // Remove existing folders for current folder
             const filteredFiles = prev.filter(f => !(f.type === 'folder' && f.folder === currentFolder));
-            // Add new folders
-            return [...filteredFiles, ...s3Folders];
+            // Add new folders, but check for duplicates by name and folder context
+            const existingFolderNames = new Set(
+              filteredFiles
+                .filter(f => f.type === 'folder' && f.folder === currentFolder)
+                .map(f => f.name)
+            );
+            
+            const newUniqueFolders = dynamoFolders.filter(folder => 
+              !existingFolderNames.has(folder.name)
+            );
+            
+            return [...filteredFiles, ...newUniqueFolders];
           });
         }
       } catch (error) {
-        console.error('Failed to load folders from S3:', error);
+        console.error('Failed to load folders from DynamoDB:', error);
       }
     };
 
-    loadFoldersFromS3();
+    loadFoldersFromDynamoDB();
   }, [currentFolder]);
+
+  // Load folders from Lambda function
+  const loadFoldersFromLambda = async () => {
+    try {
+      const currentUser = await authService.getCurrentUser();
+      if (!currentUser) return;
+
+      const result = await lambdaService.getFolders(currentUser.email);
+      if (result.success && result.folders) {
+        const lambdaFolders: FileItem[] = result.folders.map((folder: any) => ({
+          id: folder.id,
+          name: folder.name,
+      type: "folder",
+          size: "0 files",
+          modified: new Date(folder.createdAt).toLocaleDateString(),
+      icon: Folder,
+          folder: currentFolder,
+          tags: [],
+          confidentiality: folder.confidentiality as const,
+          importance: folder.importance as const,
+          allowSharing: folder.allowSharing,
+          allowedFileTypes: folder.allowedFileTypes || ['all'],
+          s3FolderId: folder.id
+        }));
+
+        setFiles(prev => {
+          // Remove existing folders for current folder
+          const filteredFiles = prev.filter(f => !(f.type === 'folder' && f.folder === currentFolder));
+          // Add new folders, but check for duplicates by name and folder context
+          const existingFolderNames = new Set(
+            filteredFiles
+              .filter(f => f.type === 'folder' && f.folder === currentFolder)
+              .map(f => f.name)
+          );
+          
+          const newUniqueFolders = lambdaFolders.filter(folder => 
+            !existingFolderNames.has(folder.name)
+          );
+          
+          return [...filteredFiles, ...newUniqueFolders];
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load folders from Lambda:', error);
+    }
+  };
+
+  // Clean up any existing duplicates on component mount
+  useEffect(() => {
+    setFiles(prev => {
+      // Remove duplicate folders by name and folder context
+      const seen = new Set();
+      return prev.filter(file => {
+        if (file.type === 'folder') {
+          const key = `${file.name}-${file.folder}`;
+          if (seen.has(key)) {
+            return false; // Remove duplicate
+          }
+          seen.add(key);
+        }
+        return true;
+      });
+    });
+  }, []); // Run only once on mount
 
   // Filter files and folders based on current folder
   const getCurrentFolderFiles = () => {
@@ -164,8 +246,10 @@ export default function Dashboard() {
     return files.filter(file => file.type === 'folder');
   };
 
-  // Available folders and tags
-  const availableFolders = ['Root', ...getAllFolders().map(f => f.name)];
+  // Available folders and tags - remove duplicates
+  const allFolderNames = getAllFolders().map(f => f.name);
+  const uniqueFolderNames = [...new Set(allFolderNames)]; // Remove duplicates
+  const availableFolders = ['Root', ...uniqueFolderNames];
   const availableTags = ['business', 'personal', 'design', 'documents', 'media', 'presentation', 'archive', 'backup', 'photos', 'video', 'audio', 'text', 'proposal', 'assets', 'notes', 'music'];
   const availableFileTypes = [
     { value: 'all', label: 'All Files', icon: File },
@@ -210,22 +294,16 @@ export default function Dashboard() {
       if (isFolder) {
         // Find the folder in the files array to get its details
         const folder = files.find(f => f.name === fileName && f.type === 'folder');
-        if (folder) {
-          // Use the stored S3 folder ID if available, otherwise try to construct it
-          const folderId = folder.s3FolderId || folder.name.replace(/[^a-zA-Z0-9.-]/g, '_') + '_' + Date.now();
-          
-          // Delete folder from S3
-          const result = await s3Service.deleteFolder(
-            folderId,
-            currentFolder === 'Root' ? undefined : currentFolder
-          );
+        if (folder && folder.s3FolderId) {
+          // Delete folder from DynamoDB
+          const result = await dynamoService.deleteFolder(folder.s3FolderId);
 
           if (result.success) {
             // Remove from local state
             setFiles(prev => prev.filter(f => f.id !== folder.id));
             toast({
               title: "Folder deleted",
-              description: `${fileName} folder has been deleted from S3`,
+              description: `${fileName} folder has been deleted from DynamoDB`,
             });
           } else {
             toast({
@@ -304,35 +382,85 @@ export default function Dashboard() {
     }
 
     try {
-      // Create folder in S3
-      const result = await s3Service.createFolder(
-        newFolderName,
-        currentFolder === 'Root' ? undefined : currentFolder,
-        selectedFolderFileTypes.length > 0 ? selectedFolderFileTypes : undefined
-      );
+      // Get current user for Lambda function
+      const currentUser = await authService.getCurrentUser();
+      if (!currentUser) {
+        toast({
+          title: "Error",
+          description: "Please sign in to create folders",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create folder using Lambda function
+      const result = await lambdaService.createFolder({
+        userEmail: currentUser.email,
+        userId: currentUser.id,
+        folderName: newFolderName,
+        parentFolderId: currentFolder === 'Root' ? undefined : currentFolder,
+        allowedFileTypes: selectedFolderFileTypes.length > 0 ? selectedFolderFileTypes : ['all'],
+        confidentiality: 'internal',
+        importance: 'medium',
+        allowSharing: true,
+      });
 
       if (result.success && result.folderId) {
-        // Add folder to local state with the S3 folder ID
-        const newFolder: FileItem = {
-          id: Date.now(),
-          name: newFolderName,
-          type: "folder",
-          size: "0 files",
-          modified: "Just now",
-          icon: Folder,
-          folder: currentFolder,
-          tags: [],
-          confidentiality: "internal",
-          importance: "medium",
-          allowSharing: true,
-          allowedFileTypes: selectedFolderFileTypes.length > 0 ? selectedFolderFileTypes : ['all'],
-          s3FolderId: result.folderId // Store the S3 folder ID for deletion
-        };
-
-        setFiles(prev => [newFolder, ...prev]);
         setNewFolderName('');
         setSelectedFolderFileTypes([]);
         setShowCreateFolder(false);
+        
+        // Track analytics
+        await lambdaService.trackEvent({
+          userId: currentUser.id,
+          userEmail: currentUser.email,
+          eventType: 'folder_create',
+          eventData: {
+            folderName: newFolderName,
+            folderId: result.folderId,
+          },
+        });
+
+        // Send notification
+        await lambdaService.sendNotification({
+          type: 'folder_created',
+          userId: currentUser.id,
+          userEmail: currentUser.email,
+          userName: `${currentUser.firstName} ${currentUser.lastName}`,
+          data: {
+            folderName: newFolderName,
+          },
+        });
+        
+        // Refresh folders from DynamoDB
+        const refreshResult = await dynamoService.getAllFolders();
+        if (refreshResult.success && refreshResult.folders) {
+          const currentFolderId = currentFolder === 'Root' ? undefined : currentFolder;
+          const relevantFolders = refreshResult.folders.filter((folder: any) => 
+            currentFolderId ? folder.parentId === currentFolderId : !folder.parentId
+          );
+          
+          const dynamoFolders: FileItem[] = relevantFolders.map((folder: any) => ({
+            id: folder.id,
+            name: folder.name,
+            type: "folder",
+            size: "0 files",
+            modified: new Date(folder.createdAt).toLocaleDateString(),
+            icon: Folder,
+            folder: currentFolder,
+            tags: [],
+            confidentiality: folder.confidentiality || "internal",
+            importance: folder.importance || "medium",
+            allowSharing: folder.allowSharing !== false,
+            allowedFileTypes: folder.allowedFileTypes || ['all'],
+            s3FolderId: folder.id
+          }));
+          
+          setFiles(prev => {
+            const filteredFiles = prev.filter(f => !(f.type === 'folder' && f.folder === currentFolder));
+            return [...filteredFiles, ...dynamoFolders];
+          });
+        }
         
         const fileTypesText = selectedFolderFileTypes.length > 0 
           ? ` for ${selectedFolderFileTypes.join(', ')} files`
@@ -340,7 +468,7 @@ export default function Dashboard() {
         
         toast({
           title: "Folder created",
-          description: `"${newFolderName}" folder has been created in S3${fileTypesText}`,
+          description: `"${newFolderName}" folder has been created${fileTypesText}`,
         });
       } else {
         toast({
@@ -469,6 +597,11 @@ export default function Dashboard() {
 
   // Folder navigation functions
   const handleFolderClick = (folderName: string) => {
+    // Don't navigate if we're already in this folder
+    if (currentFolder === folderName) {
+      return;
+    }
+    
     setCurrentFolder(folderName);
     setFolderPath(prev => [...prev, folderName]);
   };
@@ -484,6 +617,10 @@ export default function Dashboard() {
       const newPath = folderPath.slice(0, -1);
       setFolderPath(newPath);
       setCurrentFolder(newPath[newPath.length - 1]);
+    } else {
+      // Go back to Root
+      setFolderPath(['Root']);
+      setCurrentFolder('Root');
     }
   };
 
@@ -558,9 +695,9 @@ export default function Dashboard() {
           <Dialog open={showCreateFolder} onOpenChange={setShowCreateFolder}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2 h-9">
-                <FolderPlus className="h-4 w-4" />
-                New Folder
-              </Button>
+            <FolderPlus className="h-4 w-4" />
+            New Folder
+          </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader className="space-y-3">
@@ -685,7 +822,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="space-y-1">
               <button
-                onClick={() => handleBreadcrumbClick(0)}
+                onClick={() => {
+                  setCurrentFolder('Root');
+                  setFolderPath(['Root']);
+                }}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 ${
                   currentFolder === 'Root' 
                     ? 'bg-primary text-primary-foreground font-medium' 
@@ -697,7 +837,7 @@ export default function Dashboard() {
                   Root
                 </div>
               </button>
-              {getAllFolders().map((folder) => (
+              {getCurrentFolderFolders().map((folder) => (
                 <div
                   key={folder.id}
                   className={`group relative w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 ${
@@ -754,7 +894,7 @@ export default function Dashboard() {
               ))}
               
               {/* Empty state for folders */}
-              {getAllFolders().length === 0 && (
+              {getCurrentFolderFolders().length === 0 && (
                 <div className="text-center py-4 text-muted-foreground">
                   <Folder className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-xs">No folders yet</p>
@@ -768,7 +908,7 @@ export default function Dashboard() {
         <div className="lg:col-span-3 space-y-6">
           {/* Clean Storage & Upload Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Storage Usage */}
+      {/* Storage Usage */}
         <Card className="border-border/50">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
@@ -777,13 +917,13 @@ export default function Dashboard() {
             </div>
             <Progress value={16} className="h-2 mb-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>2.4 GB used</span>
-              <span>15 GB total</span>
-            </div>
-          </CardContent>
-        </Card>
+            <span>2.4 GB used</span>
+            <span>15 GB total</span>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Upload Zone */}
+      {/* Upload Zone */}
         <Card className="lg:col-span-2 border-border/50">
           <CardContent className="p-6">
             <div className="flex items-center justify-center h-full">
@@ -802,9 +942,9 @@ export default function Dashboard() {
                   </div>
                 }
               />
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
       </div>
 
       {/* Clean Toolbar */}
@@ -873,7 +1013,7 @@ export default function Dashboard() {
                   Your files are organized in folders. Create a folder or upload files to get started.
                 </p>
                 <div className="flex gap-2 justify-center">
-                  <Button onClick={() => setShowCreateFolderModal(true)}>
+                  <Button onClick={() => setShowCreateFolder(true)}>
                     <FolderPlus className="h-4 w-4 mr-2" />
                     Create Folder
                   </Button>
@@ -913,27 +1053,27 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground">
                   {getCurrentFolderFiles().length} file{getCurrentFolderFiles().length !== 1 ? 's' : ''}
                 </p>
-              </CardHeader>
-              <CardContent>
-                {viewMode === 'grid' ? (
+        </CardHeader>
+        <CardContent>
+          {viewMode === 'grid' ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                     {getCurrentFolderFiles().map((file) => {
-                      const IconComponent = getFileIcon(file.type);
-                      return (
-                        <div
-                          key={file.id}
+                const IconComponent = getFileIcon(file.type);
+                return (
+                  <div
+                    key={file.id}
                           className="group relative p-3 border rounded-lg hover:shadow-sm transition-all duration-200 cursor-pointer hover:border-primary/50"
-                        >
-                          <div className="flex flex-col items-center text-center space-y-2">
-                            <div className={`${getFileTypeColor(file.type)}`}>
+                  >
+                    <div className="flex flex-col items-center text-center space-y-2">
+                      <div className={`${getFileTypeColor(file.type)}`}>
                               <IconComponent className="h-8 w-8" />
-                            </div>
-                            <div className="w-full">
+                      </div>
+                      <div className="w-full">
                               <p className="font-medium text-xs truncate" title={file.name}>
-                                {file.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{file.size}</p>
-                              <p className="text-xs text-muted-foreground">{file.modified}</p>
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{file.size}</p>
+                        <p className="text-xs text-muted-foreground">{file.modified}</p>
                               <div className="flex items-center gap-1 mt-1">
                                 <Badge className={`text-xs px-1 py-0 ${getConfidentialityColor(file.confidentiality)}`}>
                                   {file.confidentiality}
@@ -952,96 +1092,96 @@ export default function Dashboard() {
                                   <Progress value={file.uploadProgress} className="h-1" />
                                 </div>
                               )}
-                            </div>
-                          </div>
-                          
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                      </div>
+                    </div>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
                                 className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                              >
+                        >
                                 <MoreHorizontal className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Share2 className="h-4 w-4 mr-2" />
-                                Share
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Share2 className="h-4 w-4 mr-2" />
+                          Share
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-red-600"
                                 onClick={() => handleDelete(file.name)}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Move to Trash
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      );
-                    })}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                ) : (
+                );
+              })}
+            </div>
+          ) : (
                   <div className="space-y-1">
                     {getCurrentFolderFiles().map((file) => {
-                      const IconComponent = getFileIcon(file.type);
-                      return (
-                        <div
-                          key={file.id}
+                const IconComponent = getFileIcon(file.type);
+                return (
+                  <div
+                    key={file.id}
                           className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md transition-colors cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={getFileTypeColor(file.type)}>
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={getFileTypeColor(file.type)}>
                               <IconComponent className="h-4 w-4" />
-                            </div>
-                            <div>
+                      </div>
+                      <div>
                               <p className="font-medium text-sm">{file.name}</p>
                               <p className="text-xs text-muted-foreground">{file.modified}</p>
-                            </div>
-                          </div>
-                          
+                      </div>
+                    </div>
+                    
                           <div className="flex items-center gap-3">
                             <span className="text-xs text-muted-foreground">{file.size}</span>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                                   <MoreHorizontal className="h-3 w-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Share2 className="h-4 w-4 mr-2" />
-                                  Share
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Share2 className="h-4 w-4 mr-2" />
+                            Share
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   className="text-red-600"
                                   onClick={() => handleDelete(file.name)}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Move to Trash
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
           )}
         </div>
       </div>

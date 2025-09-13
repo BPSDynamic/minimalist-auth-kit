@@ -5,7 +5,8 @@ import {
   Upload, 
   Trash2,
   Share2,
-  HardDrive
+  HardDrive,
+  BarChart3
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -33,6 +34,10 @@ const settingsItems = [
   { title: "Storage", url: "/dashboard/storage", icon: HardDrive },
   { title: "Profile", url: "/dashboard/profile", icon: User },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
+];
+
+const enterpriseItems = [
+  { title: "Enterprise", url: "/dashboard/enterprise", icon: BarChart3 },
 ];
 
 export function AppSidebar() {
@@ -100,6 +105,24 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild className={getNavClass(item.url)}>
+                    <NavLink to={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Enterprise</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {enterpriseItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className={getNavClass(item.url)}>
                     <NavLink to={item.url}>

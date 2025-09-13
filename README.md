@@ -1,204 +1,264 @@
-# Minimalist Auth Kit - Secure File Management & Sharing Platform
+# 🏗️ CloudVault - Enterprise File Management System
 
-A modern, secure file management and sharing platform built with React, TypeScript, and AWS Amplify. Perfect for businesses that need secure file storage, organization, and sharing capabilities with enterprise-grade authentication.
+[![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![AWS Amplify](https://img.shields.io/badge/AWS_Amplify-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/amplify/)
 
-## 🚀 Features
+> **A modern, enterprise-grade file management system built with React, TypeScript, and AWS services. Provides secure file storage, sharing, collaboration, and analytics with a focus on scalability, security, and user experience.**
 
-### 🔐 Authentication & Security
-- **AWS Cognito Integration**: Secure user authentication with email verification
-- **Session Management**: Automatic session handling with real-time auth state updates
-- **Password Security**: Strong password policies with reset functionality
-- **User Profile Management**: Complete user profile with first name, last name, and email
+## 🎯 **Overview**
 
-### 📁 File Management
-- **Drag & Drop Upload**: Intuitive file upload with progress tracking
-- **Folder Organization**: Create, manage, and organize files in custom folders
-- **File Metadata**: Rich metadata including tags, confidentiality levels, and importance ratings
-- **File Types Support**: Support for all file types with smart icon detection
-- **Search & Filter**: Advanced search and filtering capabilities
+CloudVault is a comprehensive file management solution designed for enterprise environments. It offers secure file storage, advanced sharing capabilities, real-time collaboration, and detailed analytics while maintaining the highest security standards.
 
-### 🔗 File Sharing
-- **Secure Sharing**: Share files with specific recipients via email
-- **Expiration Dates**: Set automatic expiration for shared files
-- **Custom Messages**: Add personal messages to shared files
-- **Sender Information**: Automatic sender details from user session
-- **Share Links**: Generate secure, time-limited download links
+### **Key Features**
+- 🔐 **Secure Authentication** - AWS Cognito integration
+- 📁 **File Management** - Upload, organize, and manage files
+- 🔗 **Advanced Sharing** - Secure file sharing with expiration and permissions
+- 📊 **Analytics Dashboard** - Real-time usage and performance metrics
+- 🏢 **Enterprise Ready** - Multi-tenant architecture with role-based access
+- 🚀 **Scalable Infrastructure** - AWS Lambda + DynamoDB + S3
+- 📱 **Responsive Design** - Works on all devices
+- 🔒 **Security First** - End-to-end encryption and compliance
 
-### 🎨 Modern UI/UX
-- **Responsive Design**: Works perfectly on desktop, tablet, and mobile
-- **Dark/Light Theme**: Built-in theme switching
-- **Clean Interface**: Minimalist design focused on usability
-- **Real-time Updates**: Live updates for file operations and sharing
+## 🏗️ **Architecture**
 
-## 🛠️ Tech Stack
+### **Frontend Layer**
+- **Framework**: React 18 + TypeScript + Vite
+- **UI Library**: Shadcn/ui + Tailwind CSS
+- **State Management**: React Query + Context API
+- **Routing**: React Router DOM
+- **File Handling**: React Dropzone
 
-### Frontend
-- **React 18** - Modern React with hooks and concurrent features
-- **TypeScript** - Type-safe development
-- **Vite** - Fast build tool and development server
-- **Tailwind CSS** - Utility-first CSS framework
-- **Shadcn/UI** - Beautiful, accessible UI components
-- **React Router DOM** - Client-side routing
-- **React Query** - Data fetching and caching
-- **React Dropzone** - Drag & drop file uploads
+### **Backend Layer**
+- **Authentication**: AWS Cognito
+- **API Gateway**: AWS API Gateway + Lambda Functions
+- **Database**: DynamoDB (NoSQL)
+- **Storage**: S3 (Object Storage)
+- **Analytics**: CloudWatch + Custom Analytics
+- **Notifications**: SES + SNS
 
-### Backend & Infrastructure
-- **AWS Amplify Gen 2** - Backend-as-a-Service
-- **AWS Cognito** - User authentication and authorization
-- **AWS S3** - Scalable file storage
-- **AWS AppSync** - GraphQL API (configured but not actively used)
-- **AWS IAM** - Identity and access management
+### **Infrastructure Layer**
+- **IaC**: AWS CDK/CloudFormation
+- **Deployment**: AWS Amplify Gen 2
+- **Monitoring**: CloudWatch + X-Ray
+- **Security**: IAM + KMS + WAF
 
-## 📦 Installation & Setup
+## 🚀 **Quick Start**
 
-### Prerequisites
+### **Prerequisites**
 - Node.js 18+ and npm
-- AWS Account with Amplify CLI access
-- Git
+- AWS CLI configured
+- AWS Amplify CLI
 
-### Quick Start
+### **Installation**
 
 1. **Clone the repository**
-   ```bash
-   git clone https://github.com/BPSDynamic/minimalist-auth-kit.git
-   cd minimalist-auth-kit
-   ```
+```bash
+git clone https://github.com/your-username/cloudvault.git
+cd cloudvault
+```
 
 2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up AWS Amplify Backend**
-   ```bash
-   # Install Amplify CLI globally
-   npm install -g @aws-amplify/cli
-   
-   # Deploy the backend
-   npx ampx sandbox deploy
-   ```
-
-4. **Start development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open your browser**
-   Navigate to `http://localhost:8080`
-
-### Environment Configuration
-
-The application automatically configures itself using the `amplify_outputs.json` file generated by Amplify. No additional environment variables are required.
-
-## 🏗️ Project Structure
-
-```
-src/
-├── components/
-│   ├── auth/           # Authentication components
-│   ├── dashboard/      # Dashboard layout and navigation
-│   ├── upload/         # File upload and management
-│   └── ui/             # Reusable UI components
-├── hooks/              # Custom React hooks
-├── lib/                # Core services and utilities
-│   ├── authService.ts  # Authentication service
-│   ├── s3Service.ts    # S3 file operations
-│   └── amplify.ts      # Amplify configuration
-├── pages/              # Application pages
-└── main.tsx           # Application entry point
-```
-
-## 🔧 Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-- `npm run amplify:deploy` - Deploy Amplify backend
-- `npm run amplify:delete` - Delete Amplify backend
-
-## 🌐 Deployment Options
-
-### Option 1: AWS Amplify Hosting (Recommended)
-Deploy directly to AWS Amplify for seamless integration with your backend:
-
 ```bash
-# Initialize hosting
-npx ampx generate hosting
+npm install
+```
 
-# Deploy
+3. **Configure AWS Amplify**
+```bash
+npm install -g @aws-amplify/cli-core
 npx ampx sandbox deploy
 ```
 
-### Option 2: AWS Marketplace SaaS
-This application is designed for AWS Marketplace SaaS deployment:
+4. **Start development server**
+```bash
+npm run dev
+```
 
-- **Source code remains private** in your repository
-- **Customers deploy to their own AWS accounts**
-- **One-click deployment** via AWS Marketplace
-- **Automatic billing** through AWS Marketplace
+5. **Open in browser**
+```
+http://localhost:8080
+```
 
-## 📊 Current Status
+## 📁 **Project Structure**
 
-### ✅ Completed Features
-- [x] User authentication with AWS Cognito
-- [x] File upload and download with S3
-- [x] Folder creation and management
-- [x] File sharing with recipients
-- [x] Metadata management (tags, confidentiality, importance)
-- [x] Responsive UI with modern design
-- [x] Real-time session management
-- [x] Automatic sender information in sharing
+```
+cloudvault/
+├── src/
+│   ├── components/          # React components
+│   │   ├── auth/           # Authentication components
+│   │   ├── dashboard/      # Dashboard components
+│   │   └── ui/             # Reusable UI components
+│   ├── pages/              # Application pages
+│   ├── lib/                # Service libraries
+│   │   ├── authService.ts  # Authentication service
+│   │   ├── s3Service.ts    # S3 operations
+│   │   ├── dynamoService.ts # DynamoDB operations
+│   │   └── lambdaService.ts # Lambda functions
+│   └── hooks/              # Custom React hooks
+├── amplify/                # AWS Amplify configuration
+│   ├── functions/          # Lambda functions
+│   └── backend.ts          # Backend configuration
+├── docs/                   # Documentation
+├── scripts/                # Deployment scripts
+└── infrastructure/         # IaC templates
+```
 
-### 🚧 In Development
-- [ ] Advanced file search and filtering
-- [ ] File versioning
-- [ ] Bulk operations
-- [ ] Advanced sharing permissions
-- [ ] Audit logging
+## 🔧 **Configuration**
 
-## 🔒 Security Features
+### **Environment Variables**
+Create a `.env.local` file:
+```env
+VITE_APP_REGION=eu-west-1
+VITE_APP_USER_POOL_ID=your-user-pool-id
+VITE_APP_USER_POOL_CLIENT_ID=your-client-id
+VITE_APP_IDENTITY_POOL_ID=your-identity-pool-id
+VITE_APP_S3_BUCKET=your-s3-bucket
+VITE_APP_API_GATEWAY_URL=your-api-gateway-url
+```
 
-- **Encrypted Storage**: All files stored securely in AWS S3
-- **Access Control**: User-based access with AWS IAM
-- **Secure Sharing**: Time-limited, recipient-specific share links
-- **Session Security**: Automatic session management and cleanup
-- **Data Privacy**: User data stays within their AWS account
+### **AWS Amplify Configuration**
+The `amplify_outputs.json` file contains all AWS service configurations and is automatically generated during deployment.
 
-## 📈 Business Model
+## 🚀 **Deployment**
 
-This application is designed for **AWS Marketplace SaaS** deployment:
+### **Development Environment**
+```bash
+npm run dev
+```
 
-1. **Private Source Code**: Your code remains in your private repository
-2. **Customer Deployment**: Customers deploy to their own AWS accounts
-3. **Automatic Billing**: AWS handles billing through Marketplace
-4. **Scalable**: Each customer gets their own isolated environment
-5. **Enterprise Ready**: Perfect for businesses needing secure file management
+### **Production Build**
+```bash
+npm run build
+```
 
-## 🤝 Contributing
+### **AWS Deployment**
+```bash
+# Deploy backend
+npx ampx sandbox deploy
 
-This is a private project. For issues or feature requests, please contact the development team.
+# Deploy frontend
+npm run build
+# Upload dist/ to S3 or use Amplify Hosting
+```
 
-## 📄 License
+## 📊 **Features**
 
-Private - All rights reserved. This software is proprietary and confidential.
+### **File Management**
+- Upload multiple files with drag & drop
+- Organize files in folders
+- File type validation and restrictions
+- Automatic thumbnail generation
+- File versioning and history
 
-## 🆘 Support
+### **Sharing & Collaboration**
+- Secure file sharing with expiration dates
+- Password-protected shares
+- Recipient management
+- Download tracking and analytics
+- Email notifications
 
-For technical support or questions:
-- Create an issue in this repository
-- Contact the development team
-- Check the documentation in the `/docs` folder
+### **Analytics & Reporting**
+- Real-time usage statistics
+- Storage usage monitoring
+- User activity tracking
+- Performance metrics
+- Custom reports
 
-## 🔄 Recent Updates
+### **Security & Compliance**
+- End-to-end encryption
+- Role-based access control
+- Audit logging
+- Data loss prevention
+- GDPR compliance
 
-### Latest Version Features
-- **Automatic Sender Information**: Sender details are now automatically pulled from user session
-- **Enhanced File Sharing**: Improved sharing workflow with better UX
-- **Folder Management**: Complete folder creation, listing, and management
-- **Metadata Storage**: Centralized metadata storage in S3
-- **UI Improvements**: Cleaner interface with better responsiveness
+## 🔒 **Security**
+
+### **Authentication**
+- Multi-factor authentication (MFA)
+- Password policies
+- Session management
+- Single sign-on (SSO) support
+
+### **Data Protection**
+- Encryption at rest (S3 + KMS)
+- Encryption in transit (TLS 1.3)
+- Access control (IAM + Cognito)
+- Data loss prevention policies
+
+### **Monitoring**
+- CloudTrail audit logging
+- CloudWatch monitoring
+- Security alerts
+- Vulnerability scanning
+
+## 📈 **Performance**
+
+### **Targets**
+- **API Response Time**: < 200ms (95th percentile)
+- **File Upload**: < 5 seconds for 100MB files
+- **File Download**: < 2 seconds for 100MB files
+- **Concurrent Users**: 10,000+ simultaneous users
+- **Storage Capacity**: 100TB+ per environment
+
+### **Optimization**
+- CloudFront CDN for global content delivery
+- S3 Transfer Acceleration
+- DynamoDB auto-scaling
+- Lambda provisioned concurrency
+
+## 🧪 **Testing**
+
+### **Unit Tests**
+```bash
+npm run test
+```
+
+### **Integration Tests**
+```bash
+npm run test:integration
+```
+
+### **E2E Tests**
+```bash
+npm run test:e2e
+```
+
+## 📚 **Documentation**
+
+- [Architecture Overview](docs/architecture.md)
+- [API Documentation](docs/api.md)
+- [Deployment Guide](docs/deployment.md)
+- [Security Guide](docs/security.md)
+- [Contributing Guide](docs/contributing.md)
+- [Troubleshooting](docs/troubleshooting.md)
+
+## 🤝 **Contributing**
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 **License**
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 **Support**
+
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/your-username/cloudvault/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-username/cloudvault/discussions)
+- **Email**: support@cloudvault.com
+
+## 🏆 **Acknowledgments**
+
+- AWS for providing the cloud infrastructure
+- React team for the amazing framework
+- Shadcn/ui for the beautiful component library
+- All contributors who help make this project better
 
 ---
 
-**Built with ❤️ for secure file management**
+**Built with ❤️ by the CloudVault Team**

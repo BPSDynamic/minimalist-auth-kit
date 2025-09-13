@@ -12,6 +12,7 @@ import ShareFiles from "./pages/ShareFiles";
 import SharedFiles from "./pages/SharedFiles";
 import Folders from "./pages/Folders";
 import Trash from "./pages/Trash";
+import EnterpriseDashboard from "./pages/EnterpriseDashboard";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthGuard } from "./components/auth/AuthGuard";
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/dashboard/folders" element={<AuthGuard><DashboardLayout><Folders /></DashboardLayout></AuthGuard>} />
               <Route path="/dashboard/trash" element={<AuthGuard><DashboardLayout><Trash /></DashboardLayout></AuthGuard>} />
               <Route path="/dashboard/storage" element={<AuthGuard><DashboardLayout><StorageSettings /></DashboardLayout></AuthGuard>} />
+              <Route path="/dashboard/enterprise" element={<AuthGuard><DashboardLayout><EnterpriseDashboard /></DashboardLayout></AuthGuard>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
